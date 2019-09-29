@@ -5,42 +5,64 @@ extern crate opengl_graphics;
 extern crate piston;
 
 use glutin_window::GlutinWindow as Window;
-use opengl_graphics::{GlGraphics, OpenGL};
+use graphics::*;
+use opengl_graphics::{Filter, GlGraphics, GlyphCache, OpenGL, TextureSettings};
 use piston::event_loop::*;
 use piston::input::*;
 use piston::window::WindowSettings;
 
-use graphics::*;
-
 pub struct App {
     gl: GlGraphics,
-    _rotation: f64,
+    rotation_rad: f64,
 }
 
 impl App {
-    fn render(&mut self, args: &RenderArgs) {
+    fn render(&mut self, args: &RenderArgs, glyphs: &mut GlyphCache) {
         const BLOCK_SIZE: f64 = 100.0;
-
         const RED: [f32; 4] = [1.0, 0.0, 0.0, 0.90];
 
-        let rotation = self._rotation;
+        let rotation_rad = self.rotation_rad;
         self.gl.draw(args.viewport(), |c, gl| {
             clear([1.0; 4], gl);
 
+            draw_text(c, gl, glyphs, rotation_rad);
             draw_grid(c, gl, BLOCK_SIZE, 1_000.0, 1_000.0);
             draw_walls(c, gl, BLOCK_SIZE);
 
             let line_transform = c
                 .transform
                 .trans(BLOCK_SIZE * 4.0, BLOCK_SIZE * 3.0)
-                .rot_rad(rotation);
+                .rot_rad(rotation_rad);
+            line(RED, 1.0, [0.0, 0.0, 10_000.0, 0.0], line_transform, gl);
+
             let box_transform = c
                 .transform
                 .trans(BLOCK_SIZE * 4.0, BLOCK_SIZE * 3.0)
-                .rot_rad(rotation)
+                .rot_rad(rotation_rad)
                 .trans(-5.0, -5.0);
-            line(RED, 1.0, [0.0, 0.0, 10_000.0, 0.0], line_transform, gl);
             rectangle(RED, [0.0, 0.0, 10.0, 10.0], box_transform, gl);
+
+            let x_value = if rotation_rad.cos() > 0.0 {
+                BLOCK_SIZE * 5.0
+            } else {
+                BLOCK_SIZE * 3.0
+            };
+            let y_value = if rotation_rad.cos() > 0.0 {
+                (BLOCK_SIZE * 3.0) + (rotation_rad.tan() * BLOCK_SIZE)
+            } else {
+                (BLOCK_SIZE * 3.0) - (rotation_rad.tan() * BLOCK_SIZE)
+            };
+            let temp_xform = c.transform.trans(x_value, y_value).trans(-5.0, -5.0);
+            rectangle(RED, [0.0, 0.0, 10.0, 10.0], temp_xform, gl);
+
+            let temp_xform = c
+                .transform
+                .trans(
+                    x_value + BLOCK_SIZE,
+                    y_value + rotation_rad.tan() * BLOCK_SIZE,
+                )
+                .trans(-5.0, -5.0);
+            rectangle(RED, [0.0, 0.0, 10.0, 10.0], temp_xform, gl);
         });
     }
 
@@ -53,10 +75,10 @@ impl App {
         if let Some(Button::Keyboard(key)) = e.press_args() {
             match key {
                 Key::A => {
-                    self._rotation += 0.0628319;
+                    self.rotation_rad += 0.0628319;
                 }
                 Key::D => {
-                    self._rotation -= 0.0628319;
+                    self.rotation_rad -= 0.0628319;
                 }
                 _ => {}
             }
@@ -64,12 +86,37 @@ impl App {
     }
 }
 
+fn draw_text(
+    context: graphics::Context,
+    gl: &mut opengl_graphics::GlGraphics,
+    glyphs: &mut GlyphCache,
+    rotation_rad: f64,
+) {
+    const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
+
+    let location = context.transform.trans(25.0, 1025.0);
+    let text = format!("radians: {}", rotation_rad);
+    graphics::text(BLACK, 25, &text, glyphs, location, gl).expect("write text failure");
+
+    let location = context.transform.trans(25.0, 1050.0);
+    let text = format!("cos_rad: {}", rotation_rad.cos());
+    graphics::text(BLACK, 25, &text, glyphs, location, gl).expect("write text failure");
+
+    let location = context.transform.trans(25.0, 1075.0);
+    let text = format!("sin_rad: {}", rotation_rad.sin());
+    graphics::text(BLACK, 25, &text, glyphs, location, gl).expect("write text failure");
+
+    let location = context.transform.trans(25.0, 1100.0);
+    let text = format!("tan_rad: {}", rotation_rad.tan());
+    graphics::text(BLACK, 25, &text, glyphs, location, gl).expect("write text failure");
+}
+
 fn draw_grid(
     context: graphics::Context,
     graphics: &mut opengl_graphics::GlGraphics,
     block_size: f64,
     board_width: f64,
-    borad_height: f64
+    board_height: f64,
 ) {
     const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 0.5];
 
@@ -78,7 +125,7 @@ fn draw_grid(
         graphics::line(
             BLACK,
             1.0,
-            [offset * block_size, 0.0, offset * block_size, borad_height],
+            [offset * block_size, 0.0, offset * block_size, board_height],
             context.transform,
             graphics,
         );
@@ -131,23 +178,28 @@ fn draw_walls(c: graphics::Context, gl: &mut opengl_graphics::GlGraphics, block_
 
 fn main() {
     let opengl = OpenGL::V3_2;
-
-    let mut window: Window = WindowSettings::new("spinning-square", [1000, 1000])
+    let mut window: Window = WindowSettings::new("spinning-square", [1000, 1200])
         .graphics_api(opengl)
         .exit_on_esc(true)
         .build()
         .unwrap();
 
+    let texture_settings = TextureSettings::new().filter(Filter::Nearest);
+    let mut glyphs = GlyphCache::new("assets/FiraSans-Regular.ttf", (), texture_settings)
+        .expect("Could not load font");
+
     let mut app = App {
         gl: GlGraphics::new(opengl),
-        _rotation: 0.5026552,
+        rotation_rad: -0.5654870999999999,
+        // _rotation: -0.5026552 - 0.0628319,
+        // _rotation: -0.0,
     };
 
     let mut events = Events::new(EventSettings::new());
     while let Some(e) = events.next(&mut window) {
         app.handle_event(&e);
         if let Some(r) = e.render_args() {
-            app.render(&r);
+            app.render(&r, &mut glyphs);
         }
 
         if let Some(u) = e.update_args() {
