@@ -15,11 +15,8 @@ mod player;
 
 struct App {
     player: player::Player,
+    board: Vec<i32>,
     block_size: f64,
-}
-
-fn draw_debug(lines: &[&str]) {
-    println!("{:?}", lines);
 }
 
 impl App {
@@ -32,16 +29,47 @@ impl App {
         gl.draw(args.viewport(), |c, gl| {
             clear([1.0; 4], gl);
 
-            draw_text(c, gl, self.player.rotation_rad, glyphs);
             draw_grid(c, gl, self.block_size, 1_000.0, 1_000.0);
-            draw_walls(c, gl, self.block_size);
+            // draw_walls(c, gl, self.block_size);
+            self.draw_board(c, gl, self.block_size);
             self.player.draw(c, gl, self.block_size);
-            let player_debug = self.player.debug(self.block_size);
-            draw_debug(player_debug);
+            let player_display = format!("{}", self.player);
+            let mut display_vector = vec![player_display];
+            display_vector.push(String::from("other random data"));
+            draw_text(c, gl, glyphs, display_vector);
         });
     }
 
+    fn draw_board(
+        &self,
+        c: graphics::Context,
+        gl: &mut opengl_graphics::GlGraphics,
+        block_size: f64,
+    ) {
+        for (i, &cell) in self.board.iter().enumerate() {
+            let color = match cell {
+                1 => Some(colors::RED_ALPHA),
+                2 => Some(colors::BLUE_ALPHA),
+                3 => Some(colors::GREEN_ALPHA),
+                4 => Some(colors::ORANGE_ALPHA),
+                _ => None,
+            };
+
+            if let Some(color) = color {
+                let x = (i % 10) as f64;
+                let y = (i as f64 / 10.0).floor();
+                graphics::rectangle(
+                    color,
+                    [x * block_size, y * block_size, block_size, block_size],
+                    c.transform,
+                    gl,
+                );
+            };
+        }
+    }
+
     fn update(&mut self, _args: &UpdateArgs) {
+        self.player.update(self.block_size);
         // self._rotation += 2.0 * _args.dt; // Rotate 2 radians per second.
     }
 
@@ -60,6 +88,18 @@ impl App {
     }
 }
 
+fn draw_text(
+    context: graphics::Context,
+    gl: &mut opengl_graphics::GlGraphics,
+    glyphs: &mut GlyphCache,
+    lines: Vec<String>,
+) {
+    for (i, line) in lines.into_iter().enumerate() {
+        let location = context.transform.trans(25.0, 1025.0 + i as f64 * 25.0);
+        graphics::text(colors::BLACK, 25, &line, glyphs, location, gl).expect("write text failure");
+    }
+}
+
 fn main() {
     let opengl = OpenGL::V3_2;
     let mut window: Window = WindowSettings::new("ray-casting", [1000, 1200])
@@ -73,13 +113,18 @@ fn main() {
         .expect("Could not load font");
 
     let mut gl = GlGraphics::new(opengl);
+    let tiles_x = 10;
+    let tiles_y = 10;
     let mut app = App {
         player: player::Player {
             x: 4.0,
             y: 3.0,
             rotation_rad: -0.5654870999999999,
+            x_intercepts: vec![],
+            y_intercepts: vec![],
         },
         block_size: 100.0,
+        board: load_board(tiles_x, tiles_y),
     };
 
     let mut events = Events::new(EventSettings::new());
@@ -96,6 +141,22 @@ fn main() {
             app.render(&r, &mut gl, &mut glyphs);
         }
     }
+}
+
+#[rustfmt::skip]
+fn load_board(_tiles_x: usize, _tiles_y: usize) -> Vec<i32> {
+   vec![
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+        0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
+        0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
+        0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
+        0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
+        0, 3, 3, 3, 3, 3, 3, 3, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ]
 }
 
 fn draw_grid(
@@ -122,59 +183,4 @@ fn draw_grid(
             graphics,
         );
     }
-}
-
-fn draw_walls(c: graphics::Context, gl: &mut opengl_graphics::GlGraphics, block_size: f64) {
-    graphics::rectangle(
-        colors::RED_ALPHA,
-        [block_size, block_size, block_size * 8.0, block_size],
-        c.transform,
-        gl,
-    );
-    graphics::rectangle(
-        colors::BLUE_ALPHA,
-        [block_size, block_size * 2.0, block_size, block_size * 5.0],
-        c.transform,
-        gl,
-    );
-    graphics::rectangle(
-        colors::GREEN_ALPHA,
-        [block_size, block_size * 7.0, block_size * 8.0, block_size],
-        c.transform,
-        gl,
-    );
-    graphics::rectangle(
-        colors::ORANGE_ALPHA,
-        [
-            block_size * 7.0,
-            block_size * 2.0,
-            block_size,
-            block_size * 5.0,
-        ],
-        c.transform,
-        gl,
-    );
-}
-
-fn draw_text(
-    context: graphics::Context,
-    gl: &mut opengl_graphics::GlGraphics,
-    rotation_rad: f64,
-    glyphs: &mut GlyphCache,
-) {
-    let location = context.transform.trans(25.0, 1025.0);
-    let text = format!("radians: {}", rotation_rad);
-    graphics::text(colors::BLACK, 25, &text, glyphs, location, gl).expect("write text failure");
-
-    let location = context.transform.trans(25.0, 1050.0);
-    let text = format!("cos_rad: {}", rotation_rad.cos());
-    graphics::text(colors::BLACK, 25, &text, glyphs, location, gl).expect("write text failure");
-
-    let location = context.transform.trans(25.0, 1075.0);
-    let text = format!("sin_rad: {}", rotation_rad.sin());
-    graphics::text(colors::BLACK, 25, &text, glyphs, location, gl).expect("write text failure");
-
-    let location = context.transform.trans(25.0, 1100.0);
-    let text = format!("tan_rad: {}", rotation_rad.tan());
-    graphics::text(colors::BLACK, 25, &text, glyphs, location, gl).expect("write text failure");
 }

@@ -3,6 +3,7 @@
         "Fira",
         "glutin",
         "opengl",
+        "rustfmt",
         "xform"
     ]
 }

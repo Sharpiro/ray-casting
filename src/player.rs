@@ -4,21 +4,32 @@ use colors;
 
 const DEGREES_90_RADIANS: f64 = 1.5708;
 
-struct Point {
+#[derive(Debug, Clone, Copy)]
+pub struct Point {
     x: f64,
     y: f64,
 }
 
+#[derive(Debug)]
 pub struct Player {
     pub x: f64,
     pub y: f64,
     pub rotation_rad: f64,
+    pub x_intercepts: Vec<Point>,
+    pub y_intercepts: Vec<Point>,
+}
+
+impl std::fmt::Display for Player {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "Player {{ count: {} }}",
+            self.x_intercepts.len() + self.y_intercepts.len()
+        )
+    }
 }
 
 impl Player {
-    pub fn debug(&self, block_size: f64) -> &[&str] {
-        &["hello", "world"]
-    }
     pub fn draw(
         &self,
         context: graphics::Context,
@@ -37,36 +48,44 @@ impl Player {
             line_rot.trans(-5.0, -5.0),
             gl,
         );
-        self.draw_intercepts(context, gl, block_size);
+        self.draw_intercepts(context, gl);
     }
 
-    fn draw_intercepts(
-        &self,
-        context: graphics::Context,
-        gl: &mut opengl_graphics::GlGraphics,
-        block_size: f64,
-    ) {
-        let mut x_intercept = self.get_initial_x_intercept(block_size);
-        self.draw_intercept(context, gl, &x_intercept, colors::RED_ALPHA);
+    pub fn update(&mut self, block_size: f64) {
+        let (x_intercepts, y_intercepts) = self.get_intercepts(block_size);
+        self.x_intercepts = x_intercepts;
+        self.y_intercepts = y_intercepts;
+    }
 
+    fn get_intercepts(&self, block_size: f64) -> (Vec<Point>, Vec<Point>) {
+        let mut x_intercept = self.get_initial_x_intercept(block_size);
         let mut y_intercept = self.get_initial_y_intercept(block_size);
-        self.draw_intercept(context, gl, &y_intercept, colors::BLUE_ALPHA);
+        let mut x_intercepts = vec![x_intercept];
+        let mut y_intercepts = vec![y_intercept];
 
         let skip_x = false;
         let skip_y = false;
-        let mut point_calculations = 0;
         for _ in 0..5 {
             if !skip_x {
-                x_intercept = self.get_x_intercept(block_size, &x_intercept);
-                self.draw_intercept(context, gl, &x_intercept, colors::RED_ALPHA);
-                point_calculations += 1;
+                x_intercept = self.get_x_intercept(block_size, x_intercept);
+                x_intercepts.push(x_intercept);
             }
 
             if !skip_y {
-                y_intercept = self.get_y_intercept(block_size, &y_intercept);
-                self.draw_intercept(context, gl, &y_intercept, colors::BLUE_ALPHA);
-                point_calculations += 1;
+                y_intercept = self.get_y_intercept(block_size, y_intercept);
+                y_intercepts.push(y_intercept);
             }
+        }
+        (x_intercepts, y_intercepts)
+    }
+
+    fn draw_intercepts(&self, context: graphics::Context, gl: &mut opengl_graphics::GlGraphics) {
+        for &x_intercept in &self.x_intercepts {
+            self.draw_intercept(context, gl, x_intercept, colors::RED_ALPHA);
+        }
+
+        for &y_intercept in &self.y_intercepts {
+            self.draw_intercept(context, gl, y_intercept, colors::BLUE_ALPHA);
         }
     }
 
@@ -87,7 +106,7 @@ impl Player {
         }
     }
 
-    fn get_x_intercept(&self, block_size: f64, last_point: &Point) -> Point {
+    fn get_x_intercept(&self, block_size: f64, last_point: Point) -> Point {
         let x_value = if self.rotation_rad.sin() > 0.0 {
             last_point.x + (DEGREES_90_RADIANS - self.rotation_rad).tan() * block_size
         } else {
@@ -121,7 +140,7 @@ impl Player {
         }
     }
 
-    fn get_y_intercept(&self, block_size: f64, last_point: &Point) -> Point {
+    fn get_y_intercept(&self, block_size: f64, last_point: Point) -> Point {
         let x_value = if self.rotation_rad.cos() > 0.0 {
             last_point.x + block_size
         } else {
@@ -142,7 +161,7 @@ impl Player {
         &self,
         context: graphics::Context,
         gl: &mut opengl_graphics::GlGraphics,
-        point: &Point,
+        point: Point,
         color: [f32; 4],
     ) {
         let xform = context.transform.trans(point.x, point.y).trans(-5.0, -5.0);
