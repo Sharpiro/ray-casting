@@ -17,6 +17,7 @@ struct App {
     player: player::Player,
     board: Vec<i32>,
     block_size: f64,
+    tiles_x: u32,
 }
 
 impl App {
@@ -29,14 +30,14 @@ impl App {
         gl.draw(args.viewport(), |c, gl| {
             clear([1.0; 4], gl);
 
-            draw_grid(c, gl, self.block_size, 1_000.0, 1_000.0);
+            draw_grid(c, gl, self.block_size, self.tiles_x);
             // draw_walls(c, gl, self.block_size);
             self.draw_board(c, gl, self.block_size);
             self.player.draw(c, gl, self.block_size);
             let player_display = format!("{}", self.player);
             let mut display_vector = vec![player_display];
             display_vector.push(String::from("other random data"));
-            draw_text(c, gl, glyphs, display_vector);
+            draw_text(c, gl, glyphs, self.block_size, self.tiles_x, display_vector);
         });
     }
 
@@ -69,7 +70,7 @@ impl App {
     }
 
     fn update(&mut self, _args: &UpdateArgs) {
-        self.player.update(self.block_size);
+        self.player.update(self.block_size, &self.board);
         // self._rotation += 2.0 * _args.dt; // Rotate 2 radians per second.
     }
 
@@ -92,17 +93,23 @@ fn draw_text(
     context: graphics::Context,
     gl: &mut opengl_graphics::GlGraphics,
     glyphs: &mut GlyphCache,
+    block_size: f64,
+    tiles_x: u32,
     lines: Vec<String>,
 ) {
+    const FONT_SIZE: u32 = 20;
+    let board_end = block_size * tiles_x as f64;
+    let text_start = board_end + 25.0;
     for (i, line) in lines.into_iter().enumerate() {
-        let location = context.transform.trans(25.0, 1025.0 + i as f64 * 25.0);
-        graphics::text(colors::BLACK, 25, &line, glyphs, location, gl).expect("write text failure");
+        let location = context.transform.trans(25.0, i as f64 * 25.0 + text_start);
+        graphics::text(colors::BLACK, FONT_SIZE, &line, glyphs, location, gl)
+            .expect("write text failure");
     }
 }
 
 fn main() {
     let opengl = OpenGL::V3_2;
-    let mut window: Window = WindowSettings::new("ray-casting", [1000, 1200])
+    let mut window: Window = WindowSettings::new("ray-casting", [1000, 800])
         .graphics_api(opengl)
         .exit_on_esc(true)
         .build()
@@ -114,17 +121,18 @@ fn main() {
 
     let mut gl = GlGraphics::new(opengl);
     let tiles_x = 10;
-    let tiles_y = 10;
     let mut app = App {
         player: player::Player {
             x: 4.0,
             y: 3.0,
-            rotation_rad: -0.5654870999999999,
+            // rotation_rad: -0.5654870999999999,
+            rotation_rad: 1.3191234,
             x_intercepts: vec![],
             y_intercepts: vec![],
         },
-        block_size: 100.0,
-        board: load_board(tiles_x, tiles_y),
+        block_size: 50.0,
+        board: load_board(tiles_x, tiles_x),
+        tiles_x: 10,
     };
 
     let mut events = Events::new(EventSettings::new());
@@ -163,22 +171,31 @@ fn draw_grid(
     context: graphics::Context,
     graphics: &mut opengl_graphics::GlGraphics,
     block_size: f64,
-    board_width: f64,
-    board_height: f64,
+    tiles_x: u32,
 ) {
     for i in 1..10 {
         let offset = i as f64;
         graphics::line(
             colors::BLACK,
             1.0,
-            [offset * block_size, 0.0, offset * block_size, board_height],
+            [
+                offset * block_size,
+                0.0,
+                offset * block_size,
+                tiles_x as f64 * block_size,
+            ],
             context.transform,
             graphics,
         );
         graphics::line(
             colors::BLACK,
             1.0,
-            [0.0, offset * block_size, board_width, offset * block_size],
+            [
+                0.0,
+                offset * block_size,
+                tiles_x as f64 * block_size,
+                offset * block_size,
+            ],
             context.transform,
             graphics,
         );

@@ -23,8 +23,10 @@ impl std::fmt::Display for Player {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "Player {{ count: {} }}",
-            self.x_intercepts.len() + self.y_intercepts.len()
+            "Player {{ count: {}, rot: {}, xes: {:?} }}",
+            self.x_intercepts.len() + self.y_intercepts.len(),
+            &self.rotation_rad.to_string()[0..7],
+            self.x_intercepts
         )
     }
 }
@@ -51,30 +53,52 @@ impl Player {
         self.draw_intercepts(context, gl);
     }
 
-    pub fn update(&mut self, block_size: f64) {
-        let (x_intercepts, y_intercepts) = self.get_intercepts(block_size);
+    pub fn update(&mut self, block_size: f64, board: &Vec<i32>) {
+        let (x_intercepts, y_intercepts) = self.get_intercepts(block_size, board);
         self.x_intercepts = x_intercepts;
         self.y_intercepts = y_intercepts;
     }
 
-    fn get_intercepts(&self, block_size: f64) -> (Vec<Point>, Vec<Point>) {
+    fn get_intercepts(&self, block_size: f64, board: &Vec<i32>) -> (Vec<Point>, Vec<Point>) {
         let mut x_intercept = self.get_initial_x_intercept(block_size);
         let mut y_intercept = self.get_initial_y_intercept(block_size);
         let mut x_intercepts = vec![x_intercept];
-        let mut y_intercepts = vec![y_intercept];
+        // let mut y_intercepts = vec![y_intercept];
+        let y_intercepts = vec![];
 
-        let skip_x = false;
-        let skip_y = false;
-        for _ in 0..5 {
+        let mut skip_x = false;
+        // let mut skip_y = false;
+        for _ in 0..3 {
             if !skip_x {
                 x_intercept = self.get_x_intercept(block_size, x_intercept);
+                // let x = (x_intercept.x / block_size).floor() + 1.0; // ceil?
+                let x = (x_intercept.x / block_size).ceil();
+                let y = x_intercept.y / block_size;
+                let index = ((x + y * 10.0) - 1.0) as usize;
+                if index >= 100 {
+                    continue;
+                }
+                if board[index] != 0 {
+                    skip_x = true;
+                }
                 x_intercepts.push(x_intercept);
             }
 
-            if !skip_y {
-                y_intercept = self.get_y_intercept(block_size, y_intercept);
-                y_intercepts.push(y_intercept);
-            }
+            // if !skip_y {
+            //     y_intercept = self.get_y_intercept(block_size, y_intercept);
+            //     // let x = (x_intercept.x / block_size).floor() + 1.0;
+            //     let x = y_intercept.x / block_size;
+            //     // let y = x_intercept.y / block_size;
+            //     let y = (y_intercept.y / block_size).floor() + 1.0;
+            //     let index = ((x + y * 10.0) - 1.0) as usize;
+            //     if index >= 100 {
+            //         continue;
+            //     }
+            //     if board[index] != 0 {
+            //         skip_y = true;
+            //     }
+            //     y_intercepts.push(y_intercept);
+            // }
         }
         (x_intercepts, y_intercepts)
     }
