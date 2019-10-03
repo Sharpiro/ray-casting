@@ -15,7 +15,7 @@ mod player;
 
 struct App {
     player: player::Player,
-    board: Vec<i32>,
+    board: Vec<u32>,
     block_size: f64,
     tiles_x: u32,
 }
@@ -31,12 +31,12 @@ impl App {
             clear([1.0; 4], gl);
 
             draw_grid(c, gl, self.block_size, self.tiles_x);
-            // draw_walls(c, gl, self.block_size);
             self.draw_board(c, gl, self.block_size);
             self.player.draw(c, gl, self.block_size);
-            let player_display = format!("{}", self.player);
-            let mut display_vector = vec![player_display];
-            display_vector.push(String::from("other random data"));
+            let mut display_vector = vec![self.player.to_string()];
+            display_vector.push(format!("sin: {}", self.player.rotation_rad.sin()));
+            display_vector.push(format!("cos: {}", self.player.rotation_rad.cos()));
+            display_vector.push(format!("tan: {}", self.player.rotation_rad.tan()));
             draw_text(c, gl, glyphs, self.block_size, self.tiles_x, display_vector);
         });
     }
@@ -47,7 +47,7 @@ impl App {
         gl: &mut opengl_graphics::GlGraphics,
         block_size: f64,
     ) {
-        for (i, &cell) in self.board.iter().enumerate() {
+        for (i, &cell) in (0..).zip(self.board.iter()) {
             let color = match cell {
                 1 => Some(colors::RED_ALPHA),
                 2 => Some(colors::BLUE_ALPHA),
@@ -57,11 +57,15 @@ impl App {
             };
 
             if let Some(color) = color {
-                let x = (i % 10) as f64;
-                let y = (i as f64 / 10.0).floor();
+                let (y, x) = App::div_mod(i, self.tiles_x);
                 graphics::rectangle(
                     color,
-                    [x * block_size, y * block_size, block_size, block_size],
+                    [
+                        x as f64 * block_size,
+                        y as f64 * block_size,
+                        block_size,
+                        block_size,
+                    ],
                     c.transform,
                     gl,
                 );
@@ -69,9 +73,14 @@ impl App {
         }
     }
 
+    fn div_mod(left: u32, right: u32) -> (u32, u32) {
+        let quotient = left / right;
+        let modulus = left - quotient * right;
+        (quotient, modulus)
+    }
+
     fn update(&mut self, _args: &UpdateArgs) {
         self.player.update(self.block_size, &self.board);
-        // self._rotation += 2.0 * _args.dt; // Rotate 2 radians per second.
     }
 
     fn handle_input(&mut self, button: &Button) {
@@ -82,6 +91,18 @@ impl App {
                 }
                 Key::D => {
                     self.player.rotation_rad -= 0.0628319;
+                }
+                Key::Left => {
+                    self.player.x -= 1.0;
+                }
+                Key::Right => {
+                    self.player.x += 1.0;
+                }
+                Key::Up => {
+                    self.player.y -= 1.0;
+                }
+                Key::Down => {
+                    self.player.y += 1.0;
                 }
                 _ => {}
             }
@@ -97,17 +118,19 @@ fn draw_text(
     tiles_x: u32,
     lines: Vec<String>,
 ) {
-    const FONT_SIZE: u32 = 20;
+    const FONT_SIZE: u32 = 13;
     let board_end = block_size * tiles_x as f64;
     let text_start = board_end + 25.0;
     for (i, line) in lines.into_iter().enumerate() {
-        let location = context.transform.trans(25.0, i as f64 * 25.0 + text_start);
+        let location = context.transform.trans(10.0, i as f64 * 15.0 + text_start);
         graphics::text(colors::BLACK, FONT_SIZE, &line, glyphs, location, gl)
             .expect("write text failure");
     }
 }
 
 fn main() {
+    // let _temp: graphics::math::Matrix2d = [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]];
+    // return;
     let opengl = OpenGL::V3_2;
     let mut window: Window = WindowSettings::new("ray-casting", [1000, 800])
         .graphics_api(opengl)
@@ -126,9 +149,12 @@ fn main() {
             x: 4.0,
             y: 3.0,
             // rotation_rad: -0.5654870999999999,
-            rotation_rad: 1.3191234,
+            // rotation_rad: 0.0,
+            rotation_rad: 0.69115,
+            // rotation_rad: 1.3191234,
             x_intercepts: vec![],
             y_intercepts: vec![],
+            count: 0,
         },
         block_size: 50.0,
         board: load_board(tiles_x, tiles_x),
@@ -152,7 +178,7 @@ fn main() {
 }
 
 #[rustfmt::skip]
-fn load_board(_tiles_x: usize, _tiles_y: usize) -> Vec<i32> {
+fn load_board(_tiles_x: usize, _tiles_y: usize) -> Vec<u32> {
    vec![
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
