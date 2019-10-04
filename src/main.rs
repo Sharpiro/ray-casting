@@ -11,6 +11,7 @@ use piston::input::*;
 use piston::window::WindowSettings;
 
 mod colors;
+mod maths;
 mod player;
 
 struct App {
@@ -37,7 +38,7 @@ impl App {
             display_vector.push(format!("sin: {}", self.player.rotation_rad.sin()));
             display_vector.push(format!("cos: {}", self.player.rotation_rad.cos()));
             display_vector.push(format!("tan: {}", self.player.rotation_rad.tan()));
-            draw_text(c, gl, glyphs, self.block_size, self.tiles_x, display_vector);
+            draw_lines(c, gl, glyphs, self.block_size, self.tiles_x, display_vector);
         });
     }
 
@@ -57,7 +58,7 @@ impl App {
             };
 
             if let Some(color) = color {
-                let (y, x) = App::div_mod(i, self.tiles_x);
+                let (y, x) = maths::div_mod(i, self.tiles_x);
                 graphics::rectangle(
                     color,
                     [
@@ -71,12 +72,6 @@ impl App {
                 );
             };
         }
-    }
-
-    fn div_mod(left: u32, right: u32) -> (u32, u32) {
-        let quotient = left / right;
-        let modulus = left - quotient * right;
-        (quotient, modulus)
     }
 
     fn update(&mut self, _args: &UpdateArgs) {
@@ -110,7 +105,7 @@ impl App {
     }
 }
 
-fn draw_text(
+fn draw_lines(
     context: graphics::Context,
     gl: &mut opengl_graphics::GlGraphics,
     glyphs: &mut GlyphCache,
@@ -118,19 +113,40 @@ fn draw_text(
     tiles_x: u32,
     lines: Vec<String>,
 ) {
-    const FONT_SIZE: u32 = 13;
-    let board_end = block_size * tiles_x as f64;
-    let text_start = board_end + 25.0;
-    for (i, line) in lines.into_iter().enumerate() {
-        let location = context.transform.trans(10.0, i as f64 * 15.0 + text_start);
-        graphics::text(colors::BLACK, FONT_SIZE, &line, glyphs, location, gl)
-            .expect("write text failure");
+    let mut line_start = block_size * tiles_x as f64 + 25.0;
+    for line in lines.into_iter() {
+        line_start += draw_string(context, gl, glyphs, line_start, line);
     }
 }
 
+fn draw_string(
+    context: graphics::Context,
+    gl: &mut opengl_graphics::GlGraphics,
+    glyphs: &mut GlyphCache,
+    line_start: f64,
+    data: String,
+) -> f64 {
+    const FONT_SIZE: u32 = 15;
+    const LINE_LENGTH: usize = 150;
+    const LINE_HEIGHT: f64 = 15.0;
+
+    let mut line_height_used = 0.0;
+    let mut end_index = 0;
+    while end_index != data.len() {
+        let start_index = end_index;
+        end_index += std::cmp::min(data.len() - end_index, LINE_LENGTH);
+        line_height_used += LINE_HEIGHT;
+
+        let location = context.transform.trans(10.0, line_start + line_height_used);
+        let slice = &data[start_index..end_index];
+        graphics::text(colors::BLACK, FONT_SIZE, slice, glyphs, location, gl)
+            .expect("write text failure");
+    }
+
+    line_height_used
+}
+
 fn main() {
-    // let _temp: graphics::math::Matrix2d = [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]];
-    // return;
     let opengl = OpenGL::V3_2;
     let mut window: Window = WindowSettings::new("ray-casting", [1000, 800])
         .graphics_api(opengl)
@@ -146,14 +162,15 @@ fn main() {
     let tiles_x = 10;
     let mut app = App {
         player: player::Player {
-            x: 4.0,
-            y: 3.0,
+            x: 5.0,
+            y: 4.0,
             // rotation_rad: -0.5654870999999999,
-            // rotation_rad: 0.0,
-            rotation_rad: 0.69115,
+            rotation_rad: -49.762,
+            // rotation_rad: 0.69115,
             // rotation_rad: 1.3191234,
             x_intercepts: vec![],
             y_intercepts: vec![],
+            wall_intersection: None,
             count: 0,
         },
         block_size: 50.0,
