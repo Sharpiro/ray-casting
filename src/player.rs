@@ -11,28 +11,14 @@ pub struct RayPoint {
     board_index: Option<usize>,
 }
 
-// #[derive(Debug, Clone, Copy)]
-// pub struct Point {
-//     x: f64,
-//     y: f64,
-// }
-
-// impl From<RayPoint> for Point {
-//     fn from(ray_point: RayPoint) -> Self {
-//         Point {
-//             x: ray_point.x,
-//             y: ray_point.y,
-//         }
-//     }
-// }
-
-// impl std::fmt::Display for Point {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         write!(f, "{{ x: {}, y: {} }}", self.x, self.y,)
-//     }
-// }
-
-// fn consume_point_test<TPoint: Into<Item>>(_point: TPoint) {}
+impl RayPoint {
+    fn get_distance(self, other_point: Self) -> f64 {
+        let dx = self.x - other_point.x;
+        let dy = self.y - other_point.y;
+        let d = (dx + dy).abs().sqrt();
+        d
+    }
+}
 
 #[derive(Debug)]
 pub struct Player {
@@ -81,6 +67,13 @@ impl Player {
         );
 
         if let Some(point) = self.wall_intersection {
+            line(
+                colors::BLACK,
+                1.0,
+                [self.x * 50.0, self.y * 50.0, point.x, point.y],
+                context.transform,
+                gl,
+            );
             self.draw_intercept(context.transform, gl, point, colors::BLACK);
         }
         // self.draw_intercepts(context.transform, gl);
@@ -94,19 +87,43 @@ impl Player {
     }
 
     fn get_wall_intersection(&self) -> Option<RayPoint> {
-        if self.x_intercepts.len() == 0 && self.y_intercepts.len() == 0 {
+        let x_intersections: Vec<&RayPoint> = self
+            .x_intercepts
+            .iter()
+            .filter(|x| x.board_index.is_some())
+            .collect();
+        let y_intersections: Vec<&RayPoint> = self
+            .y_intercepts
+            .iter()
+            .filter(|x| x.board_index.is_some())
+            .collect();
+        if x_intersections.len() == 0 && y_intersections.len() == 0 {
+            // panic!("no intersections found")
             return None;
         }
-        if self.x_intercepts.len() == 0 {
-            return Some(*self.y_intercepts.last().unwrap());
+        if x_intersections.len() == 0 {
+            return Some(**y_intersections.last().unwrap());
         }
-        if self.y_intercepts.len() == 0 {
-            return Some(*self.x_intercepts.last().unwrap());
+        if y_intersections.len() == 0 {
+            return Some(**x_intersections.last().unwrap());
         }
 
         // do line length compare
+        let player_point = RayPoint {
+            x: self.x * 50.0,
+            y: self.y * 50.0,
+            board_index: None,
+        };
+        let point_1 = **x_intersections.last().unwrap();
+        let point_2 = **y_intersections.last().unwrap();
+        let p1_distance = player_point.get_distance(point_1);
+        let p2_distance = player_point.get_distance(point_2);
 
-        Some(*self.y_intercepts.last().unwrap())
+        if p1_distance < p2_distance {
+            return Some(point_1);
+        } else {
+            return Some(point_2);
+        }
     }
 
     fn get_x_intercepts(&self, block_size: f64, board: &Vec<u32>, sin: f64) -> Vec<RayPoint> {
