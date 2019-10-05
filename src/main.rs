@@ -39,7 +39,17 @@ impl App {
             display_vector.push(format!("cos: {}", self.player.rotation_rad.cos()));
             display_vector.push(format!("tan: {}", self.player.rotation_rad.tan()));
             draw_lines(c, gl, glyphs, self.block_size, self.tiles_x, display_vector);
+            self.draw_3d_wall(c, gl);
         });
+    }
+
+    fn draw_3d_wall(&self, c: graphics::Context, gl: &mut opengl_graphics::GlGraphics) {
+        graphics::rectangle(
+            colors::BLACK,
+            [0.0, 0.0, 200.0, self.player.wall_height],
+            c.transform.trans(600.0, 0.0),
+            gl,
+        );
     }
 
     fn draw_board(
@@ -171,6 +181,8 @@ fn main() {
             x_intercepts: vec![],
             y_intercepts: vec![],
             wall_intersection: None,
+            wall_distance: 0.0,
+            wall_height: 0.0,
             count: 0,
         },
         block_size: 50.0,

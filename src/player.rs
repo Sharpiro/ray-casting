@@ -15,7 +15,7 @@ impl RayPoint {
     fn get_distance(self, other_point: Self) -> f64 {
         let dx = self.x - other_point.x;
         let dy = self.y - other_point.y;
-        let d = (dx + dy).abs().sqrt();
+        let d = (dx.powf(2.0) + dy.powf(2.0)).sqrt();
         d
     }
 }
@@ -28,6 +28,8 @@ pub struct Player {
     pub x_intercepts: Vec<RayPoint>,
     pub y_intercepts: Vec<RayPoint>,
     pub wall_intersection: Option<RayPoint>,
+    pub wall_distance: f64,
+    pub wall_height: f64,
     pub count: u32,
 }
 
@@ -37,12 +39,15 @@ impl std::fmt::Display for Player {
         let rot_size = std::cmp::min(rot_str.len(), 7);
         write!(
             f,
-            "Player {{ count: {}, rot: {}, wall_x_ion: {:?} xes: {:?}, ys: {:?} }}",
+            "Player {{ dist: {}, height: {}, wall_x_ion: {:?}, count: {}, rot: {}",
+            // xes: {:?}, ys: {:?} }}",
+            self.wall_distance,
+            self.wall_height,
+            self.wall_intersection,
             self.x_intercepts.len() + self.y_intercepts.len(),
             &rot_str[..rot_size],
-            self.wall_intersection,
-            self.x_intercepts,
-            self.y_intercepts
+            // self.x_intercepts,
+            // self.y_intercepts
         )
     }
 }
@@ -83,10 +88,18 @@ impl Player {
         let (sin, cos) = self.rotation_rad.sin_cos();
         self.x_intercepts = self.get_x_intercepts(block_size, board, sin);
         self.y_intercepts = self.get_y_intercepts(block_size, board, cos);
-        self.wall_intersection = self.get_wall_intersection();
+        let (wall_intersection, wall_distance) = self.get_wall_intersection();
+        self.wall_intersection = wall_intersection;
+        self.wall_distance = wall_distance;
+        self.wall_height = (100.0 / wall_distance) * 200.0;
     }
 
-    fn get_wall_intersection(&self) -> Option<RayPoint> {
+    // fn get_wall_height(&self) -> u32 {
+    //     // height = X / distance
+    //     0
+    // }
+
+    fn get_wall_intersection(&self) -> (Option<RayPoint>, f64) {
         let x_intersections: Vec<&RayPoint> = self
             .x_intercepts
             .iter()
@@ -99,13 +112,7 @@ impl Player {
             .collect();
         if x_intersections.len() == 0 && y_intersections.len() == 0 {
             // panic!("no intersections found")
-            return None;
-        }
-        if x_intersections.len() == 0 {
-            return Some(**y_intersections.last().unwrap());
-        }
-        if y_intersections.len() == 0 {
-            return Some(**x_intersections.last().unwrap());
+            return (None, 0.0);
         }
 
         // do line length compare
@@ -114,15 +121,25 @@ impl Player {
             y: self.y * 50.0,
             board_index: None,
         };
+
+        if x_intersections.len() == 0 {
+            let point = **y_intersections.last().unwrap();
+            return (Some(point), point.get_distance(player_point));
+        }
+        if y_intersections.len() == 0 {
+            let point = **x_intersections.last().unwrap();
+            return (Some(point), point.get_distance(player_point));
+        }
+
         let point_1 = **x_intersections.last().unwrap();
         let point_2 = **y_intersections.last().unwrap();
         let p1_distance = player_point.get_distance(point_1);
         let p2_distance = player_point.get_distance(point_2);
 
         if p1_distance < p2_distance {
-            return Some(point_1);
+            return (Some(point_1), p1_distance);
         } else {
-            return Some(point_2);
+            return (Some(point_2), p2_distance);
         }
     }
 
@@ -226,23 +243,23 @@ impl Player {
         Some(index)
     }
 
-    fn draw_intercepts(
-        &self,
-        transform: graphics::math::Matrix2d,
-        gl: &mut opengl_graphics::GlGraphics,
-    ) {
-        for &x_intercept in self.x_intercepts.iter()
-        // .filter(|point| point.board_index.is_some())
-        {
-            self.draw_intercept(transform, gl, x_intercept, colors::RED_ALPHA);
-        }
+    // fn draw_intercepts(
+    //     &self,
+    //     transform: graphics::math::Matrix2d,
+    //     gl: &mut opengl_graphics::GlGraphics,
+    // ) {
+    //     for &x_intercept in self.x_intercepts.iter()
+    //     // .filter(|point| point.board_index.is_some())
+    //     {
+    //         self.draw_intercept(transform, gl, x_intercept, colors::RED_ALPHA);
+    //     }
 
-        for &y_intercept in self.y_intercepts.iter()
-        // .filter(|point| point.board_index.is_some())
-        {
-            self.draw_intercept(transform, gl, y_intercept, colors::BLUE_ALPHA);
-        }
-    }
+    //     for &y_intercept in self.y_intercepts.iter()
+    //     // .filter(|point| point.board_index.is_some())
+    //     {
+    //         self.draw_intercept(transform, gl, y_intercept, colors::BLUE_ALPHA);
+    //     }
+    // }
 
     fn get_initial_x_intercept(&self, block_size: f64) -> RayPoint {
         let x_value = if self.rotation_rad.sin() > 0.0 {
