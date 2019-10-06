@@ -9,16 +9,27 @@ use opengl_graphics::{Filter, GlGraphics, GlyphCache, OpenGL, TextureSettings};
 use piston::event_loop::*;
 use piston::input::*;
 use piston::window::WindowSettings;
+use ray::Ray;
 
 mod colors;
 mod maths;
 mod player;
+mod point;
+mod ray;
 
 struct App {
     player: player::Player,
     board: Vec<u32>,
     block_size: f64,
     tiles_x: u32,
+    dt: f64,
+    fps: f64,
+}
+
+impl std::fmt::Display for App {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "App {{dt: {}, fps: {} }}", self.dt, self.fps)
+    }
 }
 
 impl App {
@@ -34,23 +45,23 @@ impl App {
             draw_grid(c, gl, self.block_size, self.tiles_x);
             self.draw_board(c, gl, self.block_size);
             self.player.draw(c, gl, self.block_size);
-            let mut display_vector = vec![self.player.to_string()];
+            let mut display_vector = vec![self.to_string(), self.player.to_string()];
             display_vector.push(format!("sin: {}", self.player.rotation_rad.sin()));
             display_vector.push(format!("cos: {}", self.player.rotation_rad.cos()));
             display_vector.push(format!("tan: {}", self.player.rotation_rad.tan()));
             draw_lines(c, gl, glyphs, self.block_size, self.tiles_x, display_vector);
-            self.draw_3d_wall(c, gl);
+            // self.draw_3d_wall(c, gl);
         });
     }
 
-    fn draw_3d_wall(&self, c: graphics::Context, gl: &mut opengl_graphics::GlGraphics) {
-        graphics::rectangle(
-            colors::BLACK,
-            [0.0, 0.0, 200.0, self.player.wall_height],
-            c.transform.trans(600.0, 0.0),
-            gl,
-        );
-    }
+    // fn draw_3d_wall(&self, c: graphics::Context, gl: &mut opengl_graphics::GlGraphics) {
+    //     graphics::rectangle(
+    //         colors::BLACK,
+    //         [0.0, 0.0, 200.0, self.player.wall_height],
+    //         c.transform.trans(600.0, 0.0),
+    //         gl,
+    //     );
+    // }
 
     fn draw_board(
         &self,
@@ -84,7 +95,9 @@ impl App {
         }
     }
 
-    fn update(&mut self, _args: &UpdateArgs) {
+    fn update(&mut self, args: &UpdateArgs) {
+        self.dt = args.dt;
+        self.fps = 1.0 / self.dt;
         self.player.update(self.block_size, &self.board);
     }
 
@@ -98,16 +111,16 @@ impl App {
                     self.player.rotation_rad -= 0.0628319;
                 }
                 Key::Left => {
-                    self.player.x -= 1.0;
+                    self.player.position.x -= 1.0;
                 }
                 Key::Right => {
-                    self.player.x += 1.0;
+                    self.player.position.x += 1.0;
                 }
                 Key::Up => {
-                    self.player.y -= 1.0;
+                    self.player.position.y -= 1.0;
                 }
                 Key::Down => {
-                    self.player.y += 1.0;
+                    self.player.position.y += 1.0;
                 }
                 _ => {}
             }
@@ -172,22 +185,23 @@ fn main() {
     let tiles_x = 10;
     let mut app = App {
         player: player::Player {
-            x: 5.0,
-            y: 4.0,
+            position: point::RayPoint {
+                x: 5.0,
+                y: 4.0,
+                board_index: None,
+            },
+            rotation_rad: 0.0,
             // rotation_rad: -0.5654870999999999,
-            rotation_rad: -49.762,
+            // rotation_rad: -49.762,
             // rotation_rad: 0.69115,
             // rotation_rad: 1.3191234,
-            x_intercepts: vec![],
-            y_intercepts: vec![],
-            wall_intersection: None,
-            wall_distance: 0.0,
-            wall_height: 0.0,
-            count: 0,
+            rays: vec![Ray::new(); 5],
         },
         block_size: 50.0,
         board: load_board(tiles_x, tiles_x),
         tiles_x: 10,
+        dt: 0.0,
+        fps: 0.0,
     };
 
     let mut events = Events::new(EventSettings::new());
