@@ -1,13 +1,13 @@
 use colors;
 use graphics::*;
-use point::RayPoint;
+use point::{Intercept, Point, RayPoint};
 
 const DEGREES_90_RADIANS: f64 = 1.5708;
 
 #[derive(Debug, Clone)]
 pub struct Ray {
     pub angle: f64,
-    pub start_position: RayPoint, // probably needs to be owned by player
+    pub start_position: Point,
     pub x_intercepts: Vec<RayPoint>,
     pub y_intercepts: Vec<RayPoint>,
     pub wall_intersection: Option<RayPoint>,
@@ -32,7 +32,7 @@ impl Ray {
     pub fn new() -> Ray {
         Ray {
             angle: 0.0,
-            start_position: RayPoint::new(),
+            start_position: Point::new(),
             x_intercepts: vec![],
             y_intercepts: vec![],
             wall_intersection: None,
@@ -43,7 +43,10 @@ impl Ray {
 }
 
 impl Ray {
-    pub fn update(&mut self, block_size: f64, board: &Vec<u32>) {
+    pub fn update(&mut self, start_position: Point, angle: f64, block_size: f64, board: &Vec<u32>) {
+        // todo: see if 'Into' trait removes 1 clone operation here
+        self.start_position = start_position;
+        self.angle = angle;
         let (sin, cos) = self.angle.sin_cos();
         self.x_intercepts = self.get_x_intercepts(block_size, board, sin);
         self.y_intercepts = self.get_y_intercepts(block_size, board, cos);
@@ -59,9 +62,11 @@ impl Ray {
         gl: &mut opengl_graphics::GlGraphics,
         block_size: f64,
     ) {
+        // self.draw_intercepts(context.transform, gl);
+
         if let Some(point) = self.wall_intersection {
             line(
-                colors::BLACK,
+                colors::YELLOW,
                 1.0,
                 [
                     self.start_position.x * block_size,
@@ -72,10 +77,13 @@ impl Ray {
                 context.transform,
                 gl,
             );
-            self.draw_intercept(context.transform, gl, point, colors::BLACK);
+            let color = if point.intercept == Intercept::XIntercept {
+                colors::RED_ALPHA
+            } else {
+                colors::BLUE_ALPHA
+            };
+            self.draw_intercept(context.transform, gl, point, color);
         }
-
-        // self.draw_intercepts(context.transform, gl);
     }
 
     fn get_wall_intersection(&self) -> (Option<RayPoint>, f64) {
@@ -95,10 +103,9 @@ impl Ray {
         }
 
         // do line length compare
-        let player_point = RayPoint {
+        let player_point = Point {
             x: self.start_position.x * 50.0,
             y: self.start_position.y * 50.0,
-            board_index: None,
         };
 
         if x_intersections.len() == 0 {
@@ -191,7 +198,12 @@ impl Ray {
     }
 
     fn get_board_index_x(block_size: f64, x_intercept: RayPoint, sin: f64) -> Option<usize> {
-        let x_tile = (x_intercept.x / block_size).floor() as usize;
+        // let x_tile = (x_intercept.x / block_size).floor() as usize;
+        let x_tile = (x_intercept.x / block_size).ceil() as isize - 1;
+        if x_tile < 0 {
+            return None;
+        }
+        let x_tile = x_tile as usize;
         let mut y_tile = (x_intercept.y / block_size) as usize;
         if sin < 0.0 {
             if y_tile == 0 {
@@ -208,7 +220,15 @@ impl Ray {
 
     fn get_board_index_y(block_size: f64, y_intercept: RayPoint, cos: f64) -> Option<usize> {
         let mut x_tile = (y_intercept.x / block_size) as usize;
-        let y_tile = (y_intercept.y / block_size).floor() as usize;
+        // let y_tile = ((y_intercept.y - 0.0001) / block_size).floor() as usize;
+        // (ceil - 1) is NOT EQUAL to (floor)!
+        let _temp = y_intercept;
+        let y_tile = (y_intercept.y / block_size).ceil() as isize - 1;
+        if y_tile < 0 {
+            return None;
+        }
+        let y_tile = y_tile as usize;
+
         if cos < 0.0 {
             if x_tile == 0 {
                 return None;
@@ -238,6 +258,7 @@ impl Ray {
         RayPoint {
             x: x_value,
             y: y_value,
+            intercept: Intercept::XIntercept,
             board_index: None,
         }
     }
@@ -256,6 +277,7 @@ impl Ray {
         RayPoint {
             x: x_value,
             y: y_value,
+            intercept: Intercept::XIntercept,
             board_index: None,
         }
     }
@@ -274,6 +296,7 @@ impl Ray {
         RayPoint {
             x: x_value,
             y: y_value,
+            intercept: Intercept::YIntercept,
             board_index: None,
         }
     }
@@ -292,6 +315,7 @@ impl Ray {
         RayPoint {
             x: x_value,
             y: y_value,
+            intercept: Intercept::YIntercept,
             board_index: None,
         }
     }
@@ -307,21 +331,21 @@ impl Ray {
         rectangle(color, [0.0, 0.0, 10.0, 10.0], xform, gl);
     }
 
-    // fn draw_intercepts(
-    //     &self,
-    //     transform: graphics::math::Matrix2d,
-    //     gl: &mut opengl_graphics::GlGraphics,
-    // ) {
-    //     for &x_intercept in self.x_intercepts.iter()
-    //     // .filter(|point| point.board_index.is_some())
-    //     {
-    //         self.draw_intercept(transform, gl, x_intercept, colors::RED_ALPHA);
-    //     }
+    fn _draw_intercepts(
+        &self,
+        transform: graphics::math::Matrix2d,
+        gl: &mut opengl_graphics::GlGraphics,
+    ) {
+        for &x_intercept in self.x_intercepts.iter()
+        // .filter(|point| point.board_index.is_some())
+        {
+            self.draw_intercept(transform, gl, x_intercept, colors::RED_ALPHA);
+        }
 
-    //     for &y_intercept in self.y_intercepts.iter()
-    //     // .filter(|point| point.board_index.is_some())
-    //     {
-    //         self.draw_intercept(transform, gl, y_intercept, colors::BLUE_ALPHA);
-    //     }
-    // }
+        for &y_intercept in self.y_intercepts.iter()
+        // .filter(|point| point.board_index.is_some())
+        {
+            self.draw_intercept(transform, gl, y_intercept, colors::BLUE_ALPHA);
+        }
+    }
 }

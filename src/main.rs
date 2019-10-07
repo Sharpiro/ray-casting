@@ -17,6 +17,60 @@ mod player;
 mod point;
 mod ray;
 
+fn main() {
+    let opengl = OpenGL::V3_2;
+    let mut window: Window = WindowSettings::new("ray-casting", [1000, 800])
+        .graphics_api(opengl)
+        .exit_on_esc(true)
+        .build()
+        .unwrap();
+
+    let texture_settings = TextureSettings::new().filter(Filter::Nearest);
+    let mut glyphs = GlyphCache::new("assets/FiraSans-Regular.ttf", (), texture_settings)
+        .expect("Could not load font");
+
+    let mut gl = GlGraphics::new(opengl);
+    let tiles_x = 10;
+    // const PLAYER_ROT_INC: f64 = 0.0628319;
+    // const PLAYER_ROT_INC: f64 = 0.017453292519943295;
+    // const PLAYER_ROT_INC: f64 = 0.03490658503988659;
+    // const PLAYER_ROT_INC: f64 = 0.06981317007977318;
+    // const PLAYER_ROT_INC: f64 = 0.39269908169872414;
+    let mut app = App {
+        player: player::Player {
+            position: point::Point { x: 5.0, y: 7.0 },
+            // angle: std::f64::consts::PI / -4.0,
+            angle: -0.78539816339744783,
+            angle_tick: 0.39269908169872414,
+            // angle: -0.5654870999999999,
+            // angle: -49.762,
+            // angle: 0.69115,
+            // angle: 1.3191234,
+            rays: vec![Ray::new(); 1],
+        },
+        block_size: 50.0,
+        board: load_board(tiles_x, tiles_x),
+        tiles_x: 10,
+        dt: 0.0,
+        fps: 0.0,
+    };
+
+    let mut events = Events::new(EventSettings::new());
+    while let Some(e) = events.next(&mut window) {
+        if let Some(b) = e.press_args() {
+            app.handle_input(&b);
+        }
+
+        if let Some(u) = e.update_args() {
+            app.update(&u);
+        }
+
+        if let Some(r) = e.render_args() {
+            app.render(&r, &mut gl, &mut glyphs);
+        }
+    }
+}
+
 struct App {
     player: player::Player,
     board: Vec<u32>,
@@ -46,9 +100,9 @@ impl App {
             self.draw_board(c, gl, self.block_size);
             self.player.draw(c, gl, self.block_size);
             let mut display_vector = vec![self.to_string(), self.player.to_string()];
-            display_vector.push(format!("sin: {}", self.player.rotation_rad.sin()));
-            display_vector.push(format!("cos: {}", self.player.rotation_rad.cos()));
-            display_vector.push(format!("tan: {}", self.player.rotation_rad.tan()));
+            display_vector.push(format!("sin: {}", self.player.angle.sin()));
+            display_vector.push(format!("cos: {}", self.player.angle.cos()));
+            display_vector.push(format!("tan: {}", self.player.angle.tan()));
             draw_lines(c, gl, glyphs, self.block_size, self.tiles_x, display_vector);
             // self.draw_3d_wall(c, gl);
         });
@@ -105,10 +159,10 @@ impl App {
         if let Button::Keyboard(key) = button {
             match key {
                 Key::A => {
-                    self.player.rotation_rad += 0.0628319;
+                    self.player.angle += self.player.angle_tick;
                 }
                 Key::D => {
-                    self.player.rotation_rad -= 0.0628319;
+                    self.player.angle -= self.player.angle_tick;
                 }
                 Key::Left => {
                     self.player.position.x -= 1.0;
@@ -169,69 +223,18 @@ fn draw_string(
     line_height_used
 }
 
-fn main() {
-    let opengl = OpenGL::V3_2;
-    let mut window: Window = WindowSettings::new("ray-casting", [1000, 800])
-        .graphics_api(opengl)
-        .exit_on_esc(true)
-        .build()
-        .unwrap();
-
-    let texture_settings = TextureSettings::new().filter(Filter::Nearest);
-    let mut glyphs = GlyphCache::new("assets/FiraSans-Regular.ttf", (), texture_settings)
-        .expect("Could not load font");
-
-    let mut gl = GlGraphics::new(opengl);
-    let tiles_x = 10;
-    let mut app = App {
-        player: player::Player {
-            position: point::RayPoint {
-                x: 5.0,
-                y: 4.0,
-                board_index: None,
-            },
-            rotation_rad: 0.0,
-            // rotation_rad: -0.5654870999999999,
-            // rotation_rad: -49.762,
-            // rotation_rad: 0.69115,
-            // rotation_rad: 1.3191234,
-            rays: vec![Ray::new(); 5],
-        },
-        block_size: 50.0,
-        board: load_board(tiles_x, tiles_x),
-        tiles_x: 10,
-        dt: 0.0,
-        fps: 0.0,
-    };
-
-    let mut events = Events::new(EventSettings::new());
-    while let Some(e) = events.next(&mut window) {
-        if let Some(b) = e.press_args() {
-            app.handle_input(&b);
-        }
-
-        if let Some(u) = e.update_args() {
-            app.update(&u);
-        }
-
-        if let Some(r) = e.render_args() {
-            app.render(&r, &mut gl, &mut glyphs);
-        }
-    }
-}
-
 #[rustfmt::skip]
 fn load_board(_tiles_x: usize, _tiles_y: usize) -> Vec<u32> {
    vec![
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+        0, 2, 1, 1, 1, 1, 1, 4, 0, 0,
         0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
         0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
         0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
+        0, 2, 3, 3, 0, 0, 3, 4, 0, 0,
         0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
-        0, 3, 3, 3, 3, 3, 3, 3, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
+        0, 2, 3, 3, 3, 3, 3, 4, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     ]
 }
