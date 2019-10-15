@@ -53,14 +53,20 @@ fn main() {
         tiles_x: 10,
         dt: 0.0,
         fps: 0.0,
+        mouse_x: 0.0,
+        mouse_y: 0.0,
     };
 
     let mut events = Events::new(EventSettings::new());
     while let Some(e) = events.next(&mut window) {
+        e.mouse_cursor(|pos| {
+            app.mouse_x = pos[0];
+            app.mouse_y = pos[1] - 30.0;
+        });
+
         if let Some(b) = e.press_args() {
             app.handle_input(&b);
         }
-
         if let Some(u) = e.update_args() {
             app.update(&u);
         }
@@ -78,6 +84,8 @@ struct App {
     tiles_x: u32,
     dt: f64,
     fps: f64,
+    mouse_x: f64,
+    mouse_y: f64,
 }
 
 impl std::fmt::Display for App {
@@ -99,10 +107,29 @@ impl App {
             draw_grid(c, gl, self.block_size, self.tiles_x);
             self.draw_board(c, gl, self.block_size);
             self.player.draw(c, gl, self.block_size);
-            let mut display_vector = vec![self.to_string(), self.player.to_string()];
+            let board_x = (self.mouse_x / self.block_size).floor();
+            let board_y = (self.mouse_y / self.block_size).floor();
+            let board_debug = String::from(format!("board_x: {}, board_y: {}", board_x, board_y));
+            let board_index = String::from(format!(
+                "index: {},",
+                board_y * self.tiles_x as f64 + board_x,
+            ));
+            let mouse_debug = String::from(format!(
+                "mouse_x: {}, mouse_y: {}",
+                self.mouse_x, self.mouse_y
+            ));
+            let mut display_vector = vec![
+                board_debug,
+                board_index,
+                mouse_debug,
+                self.to_string(),
+                self.player.to_string(),
+            ];
             display_vector.push(format!("sin: {}", self.player.angle.sin()));
             display_vector.push(format!("cos: {}", self.player.angle.cos()));
             display_vector.push(format!("tan: {}", self.player.angle.tan()));
+            display_vector.push(format!("x-es: {}", self.player.rays[0].x_intercepts));
+            display_vector.push(format!("y-es: {}", self.player.rays[0].y_intercepts));
             draw_lines(c, gl, glyphs, self.block_size, self.tiles_x, display_vector);
             // self.draw_3d_wall(c, gl);
         });
@@ -230,9 +257,9 @@ fn load_board(_tiles_x: usize, _tiles_y: usize) -> Vec<u32> {
         0, 2, 1, 1, 1, 1, 1, 4, 0, 0,
         0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
         0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
-        0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
-        0, 2, 3, 3, 0, 0, 3, 4, 0, 0,
-        0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
+        0, 2, 0, 3, 0, 0, 3, 4, 0, 0,
+        0, 2, 0, 0, 0, 0, 3, 4, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 4, 0, 0,
         0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
         0, 2, 3, 3, 3, 3, 3, 4, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

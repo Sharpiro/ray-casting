@@ -1,6 +1,6 @@
 use colors;
 use graphics::*;
-use point::{Intercept, Point, RayPoint};
+use point::{DisplayVec, Intercept, Point, RayPoint};
 
 const DEGREES_90_RADIANS: f64 = 1.5708;
 
@@ -8,8 +8,8 @@ const DEGREES_90_RADIANS: f64 = 1.5708;
 pub struct Ray {
     pub angle: f64,
     pub start_position: Point,
-    pub x_intercepts: Vec<RayPoint>,
-    pub y_intercepts: Vec<RayPoint>,
+    pub x_intercepts: DisplayVec<RayPoint>,
+    pub y_intercepts: DisplayVec<RayPoint>,
     pub wall_intersection: Option<RayPoint>,
     pub wall_distance: f64,
     pub wall_height: f64,
@@ -30,11 +30,12 @@ impl std::fmt::Display for Ray {
 
 impl Ray {
     pub fn new() -> Ray {
+        // let _temp2 = DisplayVec::<i32>::new();
         Ray {
             angle: 0.0,
             start_position: Point::new(),
-            x_intercepts: vec![],
-            y_intercepts: vec![],
+            x_intercepts: DisplayVec::<RayPoint>::new(),
+            y_intercepts: DisplayVec::<RayPoint>::new(),
             wall_intersection: None,
             wall_distance: 0.0,
             wall_height: 0.0,
@@ -129,9 +130,14 @@ impl Ray {
         }
     }
 
-    fn get_x_intercepts(&self, block_size: f64, board: &Vec<u32>, sin: f64) -> Vec<RayPoint> {
+    fn get_x_intercepts(
+        &self,
+        block_size: f64,
+        board: &Vec<u32>,
+        sin: f64,
+    ) -> DisplayVec<RayPoint> {
         let mut x_intercept = self.get_initial_x_intercept(block_size);
-        let mut x_intercepts = vec![];
+        let mut x_intercepts = DisplayVec::<RayPoint>::new();
 
         if let Some(board_index) = Ray::get_board_index_x(block_size, x_intercept, sin) {
             if board[board_index] != 0 {
@@ -139,6 +145,7 @@ impl Ray {
                 x_intercepts.push(x_intercept);
                 return x_intercepts;
             } else {
+                x_intercept.board_index = Some(board_index);
                 x_intercepts.push(x_intercept);
             }
         } else {
@@ -153,6 +160,7 @@ impl Ray {
                     x_intercepts.push(x_intercept);
                     return x_intercepts;
                 } else {
+                    x_intercept.board_index = Some(board_index);
                     x_intercepts.push(x_intercept);
                 }
             } else {
@@ -163,9 +171,14 @@ impl Ray {
         x_intercepts
     }
 
-    fn get_y_intercepts(&self, block_size: f64, board: &Vec<u32>, cos: f64) -> Vec<RayPoint> {
+    fn get_y_intercepts(
+        &self,
+        block_size: f64,
+        board: &Vec<u32>,
+        cos: f64,
+    ) -> DisplayVec<RayPoint> {
         let mut y_intercept = self.get_initial_y_intercept(block_size);
-        let mut y_intercepts = vec![];
+        let mut y_intercepts = DisplayVec::<RayPoint>::new();
 
         if let Some(board_index) = Ray::get_board_index_y(block_size, y_intercept, cos) {
             if board[board_index] != 0 {
@@ -173,6 +186,7 @@ impl Ray {
                 y_intercepts.push(y_intercept);
                 return y_intercepts;
             } else {
+                y_intercept.board_index = Some(board_index);
                 y_intercepts.push(y_intercept);
             }
         } else {
@@ -187,6 +201,7 @@ impl Ray {
                     y_intercepts.push(y_intercept);
                     return y_intercepts;
                 } else {
+                    y_intercept.board_index = Some(board_index);
                     y_intercepts.push(y_intercept);
                 }
             } else {
@@ -198,12 +213,7 @@ impl Ray {
     }
 
     fn get_board_index_x(block_size: f64, x_intercept: RayPoint, sin: f64) -> Option<usize> {
-        // let x_tile = (x_intercept.x / block_size).floor() as usize;
-        let x_tile = (x_intercept.x / block_size).ceil() as isize - 1;
-        if x_tile < 0 {
-            return None;
-        }
-        let x_tile = x_tile as usize;
+        let x_tile = (x_intercept.x.round() / block_size).floor() as usize;
         let mut y_tile = (x_intercept.y / block_size) as usize;
         if sin < 0.0 {
             if y_tile == 0 {
@@ -220,15 +230,7 @@ impl Ray {
 
     fn get_board_index_y(block_size: f64, y_intercept: RayPoint, cos: f64) -> Option<usize> {
         let mut x_tile = (y_intercept.x / block_size) as usize;
-        // let y_tile = ((y_intercept.y - 0.0001) / block_size).floor() as usize;
-        // (ceil - 1) is NOT EQUAL to (floor)!
-        let _temp = y_intercept;
-        let y_tile = (y_intercept.y / block_size).ceil() as isize - 1;
-        if y_tile < 0 {
-            return None;
-        }
-        let y_tile = y_tile as usize;
-
+        let y_tile = (y_intercept.y.round() / block_size).floor() as usize;
         if cos < 0.0 {
             if x_tile == 0 {
                 return None;

@@ -13,13 +13,10 @@ pub struct Player {
 
 impl std::fmt::Display for Player {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        // let rot_str = &self.angle.to_string();
-        // let rot_size = std::cmp::min(rot_str.len(), 7);
         write!(
             f,
             "Player {{ pos: {}, rot: {} }}",
             self.position,
-            // &rot_str[..],
             self.angle
         )
     }
