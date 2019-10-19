@@ -1,6 +1,7 @@
 use colors;
+use display_vec::DisplayVec;
 use graphics::*;
-use point::{DisplayVec, Intercept, Point, RayPoint};
+use point::{InterceptType, Point, RayPoint};
 
 const DEGREES_90_RADIANS: f64 = 1.5708;
 
@@ -30,7 +31,6 @@ impl std::fmt::Display for Ray {
 
 impl Ray {
     pub fn new() -> Ray {
-        // let _temp2 = DisplayVec::<i32>::new();
         Ray {
             angle: 0.0,
             start_position: Point::new(),
@@ -49,7 +49,7 @@ impl Ray {
         self.start_position = start_position;
         self.angle = angle;
         let (sin, cos) = self.angle.sin_cos();
-        self.x_intercepts = self.get_x_intercepts(block_size, board, sin);
+        self.x_intercepts = self.get_x_intercepts(block_size, board, sin, cos);
         self.y_intercepts = self.get_y_intercepts(block_size, board, cos);
         let (wall_intersection, wall_distance) = self.get_wall_intersection();
         self.wall_intersection = wall_intersection;
@@ -78,7 +78,7 @@ impl Ray {
                 context.transform,
                 gl,
             );
-            let color = if point.intercept == Intercept::XIntercept {
+            let color = if point.intercept_type == InterceptType::XIntercept {
                 colors::RED_ALPHA
             } else {
                 colors::BLUE_ALPHA
@@ -91,15 +91,14 @@ impl Ray {
         let x_intersections: Vec<&RayPoint> = self
             .x_intercepts
             .iter()
-            .filter(|x| x.board_index.is_some())
+            .filter(|p| p.has_wall_intersection)
             .collect();
         let y_intersections: Vec<&RayPoint> = self
             .y_intercepts
             .iter()
-            .filter(|x| x.board_index.is_some())
+            .filter(|p| p.has_wall_intersection)
             .collect();
         if x_intersections.len() == 0 && y_intersections.len() == 0 {
-            // panic!("no intersections found")
             return (None, 0.0);
         }
 
@@ -118,15 +117,15 @@ impl Ray {
             return (Some(point), point.get_distance(player_point));
         }
 
-        let point_1 = **x_intersections.last().unwrap();
-        let point_2 = **y_intersections.last().unwrap();
-        let p1_distance = player_point.get_distance(point_1);
-        let p2_distance = player_point.get_distance(point_2);
+        let x_intercept = **x_intersections.last().unwrap();
+        let y_intercept = **y_intersections.last().unwrap();
+        let x_distance = player_point.get_distance(x_intercept);
+        let y_distance = player_point.get_distance(y_intercept);
 
-        if p1_distance < p2_distance {
-            return (Some(point_1), p1_distance);
+        if x_distance < y_distance {
+            return (Some(x_intercept), x_distance);
         } else {
-            return (Some(point_2), p2_distance);
+            return (Some(y_intercept), y_distance);
         }
     }
 
@@ -135,12 +134,14 @@ impl Ray {
         block_size: f64,
         board: &Vec<u32>,
         sin: f64,
+        cos: f64,
     ) -> DisplayVec<RayPoint> {
         let mut x_intercept = self.get_initial_x_intercept(block_size);
         let mut x_intercepts = DisplayVec::<RayPoint>::new();
 
-        if let Some(board_index) = Ray::get_board_index_x(block_size, x_intercept, sin) {
+        if let Some(board_index) = Ray::get_board_index_x(block_size, x_intercept, sin, cos) {
             if board[board_index] != 0 {
+                x_intercept.has_wall_intersection = true;
                 x_intercept.board_index = Some(board_index);
                 x_intercepts.push(x_intercept);
                 return x_intercepts;
@@ -154,8 +155,9 @@ impl Ray {
 
         for _ in 0..10 {
             x_intercept = self.get_x_intercept(block_size, x_intercept);
-            if let Some(board_index) = Ray::get_board_index_x(block_size, x_intercept, sin) {
+            if let Some(board_index) = Ray::get_board_index_x(block_size, x_intercept, sin, cos) {
                 if board[board_index] != 0 {
+                    x_intercept.has_wall_intersection = true;
                     x_intercept.board_index = Some(board_index);
                     x_intercepts.push(x_intercept);
                     return x_intercepts;
@@ -182,6 +184,7 @@ impl Ray {
 
         if let Some(board_index) = Ray::get_board_index_y(block_size, y_intercept, cos) {
             if board[board_index] != 0 {
+                y_intercept.has_wall_intersection = true;
                 y_intercept.board_index = Some(board_index);
                 y_intercepts.push(y_intercept);
                 return y_intercepts;
@@ -197,6 +200,7 @@ impl Ray {
             y_intercept = self.get_y_intercept(block_size, y_intercept);
             if let Some(board_index) = Ray::get_board_index_y(block_size, y_intercept, cos) {
                 if board[board_index] != 0 {
+                    y_intercept.has_wall_intersection = true;
                     y_intercept.board_index = Some(board_index);
                     y_intercepts.push(y_intercept);
                     return y_intercepts;
@@ -212,16 +216,41 @@ impl Ray {
         y_intercepts
     }
 
-    fn get_board_index_x(block_size: f64, x_intercept: RayPoint, sin: f64) -> Option<usize> {
-        let x_tile = (x_intercept.x.round() / block_size).floor() as usize;
+    fn get_board_index_x(
+        block_size: f64,
+        x_intercept: RayPoint,
+        sin: f64,
+        cos: f64,
+    ) -> Option<usize> {
+        if x_intercept.x < 0.0 {
+            return None;
+        }
+        let rounded_x_intercept = x_intercept.x.round();
+        if rounded_x_intercept >= 10.0 * block_size {
+            return None;
+        }
+        let x_tile_float = rounded_x_intercept / block_size;
+        let mut x_tile = x_tile_float.floor() as usize;
+
+        // if the rounded intercept is a tile intersection, use cosine to estimate most accurate tile
+        // todo: may need to be done with y intercept as well, we'll see
+        if x_tile_float % 1.0 == 0.0 && cos < 0.0 {
+            if x_tile == 0 {
+                return None;
+            }
+            x_tile -= 1
+        }
+
         let mut y_tile = (x_intercept.y / block_size) as usize;
         if sin < 0.0 {
             if y_tile == 0 {
+                //todo: check seems unnecessary when inside board since this is for x intercept
                 return None;
             }
             y_tile -= 1;
         }
-        if x_tile >= 10 || y_tile >= 10 {
+        if y_tile >= 10 {
+            //todo: check seems unnecessary when inside board since this is for x intercept
             return None;
         }
         let index = x_tile + y_tile * 10;
@@ -257,12 +286,7 @@ impl Ray {
         } else {
             block_size * (self.start_position.y - 1.0)
         };
-        RayPoint {
-            x: x_value,
-            y: y_value,
-            intercept: Intercept::XIntercept,
-            board_index: None,
-        }
+        RayPoint::new(x_value, y_value, InterceptType::XIntercept)
     }
 
     fn get_x_intercept(&self, block_size: f64, last_point: RayPoint) -> RayPoint {
@@ -276,12 +300,7 @@ impl Ray {
         } else {
             last_point.y - block_size
         };
-        RayPoint {
-            x: x_value,
-            y: y_value,
-            intercept: Intercept::XIntercept,
-            board_index: None,
-        }
+        RayPoint::new(x_value, y_value, InterceptType::XIntercept)
     }
 
     fn get_initial_y_intercept(&self, block_size: f64) -> RayPoint {
@@ -295,12 +314,7 @@ impl Ray {
         } else {
             (block_size * self.start_position.y) - (self.angle.tan() * block_size)
         };
-        RayPoint {
-            x: x_value,
-            y: y_value,
-            intercept: Intercept::YIntercept,
-            board_index: None,
-        }
+        RayPoint::new(x_value, y_value, InterceptType::YIntercept)
     }
 
     fn get_y_intercept(&self, block_size: f64, last_point: RayPoint) -> RayPoint {
@@ -314,12 +328,7 @@ impl Ray {
         } else {
             last_point.y - self.angle.tan() * block_size
         };
-        RayPoint {
-            x: x_value,
-            y: y_value,
-            intercept: Intercept::YIntercept,
-            board_index: None,
-        }
+        RayPoint::new(x_value, y_value, InterceptType::YIntercept)
     }
 
     fn draw_intercept(

@@ -12,6 +12,7 @@ use piston::window::WindowSettings;
 use ray::Ray;
 
 mod colors;
+mod display_vec;
 mod maths;
 mod player;
 mod point;
@@ -41,12 +42,13 @@ fn main() {
             position: point::Point { x: 5.0, y: 7.0 },
             // angle: std::f64::consts::PI / -4.0,
             angle: -0.78539816339744783,
+            // angle: -3.1534130272864096,
             angle_tick: 0.39269908169872414,
             // angle: -0.5654870999999999,
             // angle: -49.762,
             // angle: 0.69115,
             // angle: 1.3191234,
-            rays: vec![Ray::new(); 1],
+            rays: vec![Ray::new(); 3000],
         },
         block_size: 50.0,
         board: load_board(tiles_x, tiles_x),
@@ -257,9 +259,9 @@ fn load_board(_tiles_x: usize, _tiles_y: usize) -> Vec<u32> {
         0, 2, 1, 1, 1, 1, 1, 4, 0, 0,
         0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
         0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
-        0, 2, 0, 3, 0, 0, 3, 4, 0, 0,
-        0, 2, 0, 0, 0, 0, 3, 4, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 4, 0, 0,
+        0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
+        0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
+        0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
         0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
         0, 2, 3, 3, 3, 3, 3, 4, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
