@@ -1,5 +1,6 @@
 use colors;
 use graphics::*;
+use point::InterceptType;
 use point::Point;
 use ray::Ray;
 
@@ -13,10 +14,31 @@ pub struct Player {
 
 impl std::fmt::Display for Player {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let _temp = vec![1].iter().filter(|_| true).collect::<Vec<&i32>>().len();
         write!(
             f,
-            "Player {{ pos: {}, rot: {} }}",
+            "Player {{ pos: {}, xes: {:?}, yes: {:?}, rot: {}}}",
             self.position,
+            self.rays
+                .iter()
+                .filter(|r| {
+                    match r.wall_intersection {
+                        Some(ray_point) => ray_point.intercept_type == InterceptType::XIntercept,
+                        None => false,
+                    }
+                })
+                .collect::<Vec<&Ray>>()
+                .len(),
+            self.rays
+                .iter()
+                .filter(|r| {
+                    match r.wall_intersection {
+                        Some(ray_point) => ray_point.intercept_type == InterceptType::YIntercept,
+                        None => false,
+                    }
+                })
+                .collect::<Vec<&Ray>>()
+                .len(),
             self.angle
         )
     }

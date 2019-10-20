@@ -54,7 +54,7 @@ impl Ray {
         let (wall_intersection, wall_distance) = self.get_wall_intersection();
         self.wall_intersection = wall_intersection;
         self.wall_distance = wall_distance;
-        self.wall_height = (100.0 / wall_distance) * 200.0;
+        self.wall_height = (100.0 / wall_distance) * 100.0;
     }
 
     pub fn draw(

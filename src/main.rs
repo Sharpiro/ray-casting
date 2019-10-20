@@ -20,7 +20,7 @@ mod ray;
 
 fn main() {
     let opengl = OpenGL::V3_2;
-    let mut window: Window = WindowSettings::new("ray-casting", [1000, 800])
+    let mut window: Window = WindowSettings::new("ray-casting", [1100, 800])
         .graphics_api(opengl)
         .exit_on_esc(true)
         .build()
@@ -39,16 +39,14 @@ fn main() {
     // const PLAYER_ROT_INC: f64 = 0.39269908169872414;
     let mut app = App {
         player: player::Player {
-            position: point::Point { x: 5.0, y: 7.0 },
-            // angle: std::f64::consts::PI / -4.0,
-            angle: -0.78539816339744783,
-            // angle: -3.1534130272864096,
+            position: point::Point { x: 4.0, y: 5.0 },
+            angle: 0.0,
             angle_tick: 0.39269908169872414,
             // angle: -0.5654870999999999,
             // angle: -49.762,
             // angle: 0.69115,
             // angle: 1.3191234,
-            rays: vec![Ray::new(); 3000],
+            rays: vec![Ray::new(); 400],
         },
         block_size: 50.0,
         board: load_board(tiles_x, tiles_x),
@@ -133,18 +131,87 @@ impl App {
             display_vector.push(format!("x-es: {}", self.player.rays[0].x_intercepts));
             display_vector.push(format!("y-es: {}", self.player.rays[0].y_intercepts));
             draw_lines(c, gl, glyphs, self.block_size, self.tiles_x, display_vector);
-            // self.draw_3d_wall(c, gl);
+
+            // 3d section
+            // ceil
+            const VIEW_WIDTH: f64 = 400.0;
+            const VIEW_HEIGHT: f64 = 300.0;
+            const VIEW_HEIGHT_HALF: f64 = VIEW_HEIGHT / 2.0;
+            graphics::rectangle(
+                colors::GRAY_CEIL,
+                [0.0, 0.0, VIEW_WIDTH, VIEW_HEIGHT_HALF],
+                c.transform.trans(600.0, 0.0),
+                gl,
+            );
+            // floor
+            graphics::rectangle(
+                colors::GRAY_FLOOR,
+                [0.0, 0.0, VIEW_WIDTH, 150.0],
+                c.transform.trans(600.0, VIEW_HEIGHT_HALF),
+                gl,
+            );
+            // wall
+            // let wall_height = self.player.rays[0].wall_height;
+            // let trans_y = VIEW_HEIGHT_HALF - wall_height / 2.0;
+            // graphics::rectangle(
+            //     colors::BLUE_WALL,
+            //     [0.0, 0.0, VIEW_WIDTH, wall_height],
+            //     c.transform.trans(600.0, trans_y),
+            //     gl,
+            // );
+            self.draw_wall(&self.player.rays, VIEW_WIDTH, VIEW_HEIGHT_HALF, gl, c);
         });
     }
 
-    // fn draw_3d_wall(&self, c: graphics::Context, gl: &mut opengl_graphics::GlGraphics) {
-    //     graphics::rectangle(
-    //         colors::BLACK,
-    //         [0.0, 0.0, 200.0, self.player.wall_height],
-    //         c.transform.trans(600.0, 0.0),
-    //         gl,
-    //     );
-    // }
+    fn draw_wall(
+        &self,
+        rays: &Vec<Ray>,
+        view_width: f64,
+        view_height_half: f64,
+        gl: &mut opengl_graphics::GlGraphics,
+        context: graphics::Context,
+    ) {
+        // graphics::rectangle(
+        //     colors::BLUE_WALL,
+        //     [0.0, 0.0, view_width, wall_height],
+        //     context.transform.trans(600.0, trans_y),
+        //     gl,
+        // );
+
+        let _temp_rays: Vec<&Ray> = rays
+            .iter()
+            .filter(|r| r.wall_intersection.is_some())
+            .collect();
+        if _temp_rays.is_empty() {
+            let _temp2 = 12;
+            return;
+        }
+
+        for (i, ray) in rays.iter().enumerate() {
+            let wall_height = ray.wall_height;
+            let trans_y = view_height_half - wall_height / 2.0;
+            let board_index = ray
+                .wall_intersection
+                .expect("bad intersection")
+                .board_index
+                .expect("bad index");
+            let color = match self.board[board_index] {
+                1 => colors::RED_ALPHA,
+                2 => colors::BLUE_ALPHA,
+                3 => colors::GREEN_ALPHA,
+                4 => colors::ORANGE_ALPHA,
+                _ => panic!("bad color"),
+            };
+            let color = color;
+            graphics::line(
+                color,
+                1.0,
+                [0.0, 0.0, 0.0, wall_height],
+                context.transform.trans(601.0 + i as f64, trans_y),
+                gl,
+            );
+        }
+    }
 
     fn draw_board(
         &self,
@@ -203,6 +270,12 @@ impl App {
                     self.player.position.y -= 1.0;
                 }
                 Key::Down => {
+                    self.player.position.y += 1.0;
+                }
+                Key::W => {
+                    self.player.position.y -= 1.0;
+                }
+                Key::S => {
                     self.player.position.y += 1.0;
                 }
                 _ => {}
