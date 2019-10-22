@@ -77,7 +77,7 @@ impl Player {
         line(
             colors::BLUE_ALPHA,
             1.0,
-            [0.0, 0.0, block_size * 5.0, 0.0],
+            [0.0, 0.0, block_size * 10.0, 0.0],
             line_rot,
             gl,
         );

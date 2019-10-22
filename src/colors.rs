@@ -17,7 +17,7 @@ pub const GRAY_FLOOR: [f32; 4] = [
     0.44313725490196076,
     1.0,
 ];
-pub const BLUE_WALL: [f32; 4] = [
+pub const _BLUE_WALL: [f32; 4] = [
     0.0,
     0.0,
     0.6039215686274509,

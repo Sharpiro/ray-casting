@@ -18,6 +18,11 @@ mod player;
 mod point;
 mod ray;
 
+#[cfg(target_os = "linux")]
+static TOP_OFFSET: f64 = 30.0;
+#[cfg(target_os = "windows")]
+static TOP_OFFSET: f64 = 0.0;
+
 fn main() {
     let opengl = OpenGL::V3_2;
     let mut window: Window = WindowSettings::new("ray-casting", [1100, 800])
@@ -31,25 +36,16 @@ fn main() {
         .expect("Could not load font");
 
     let mut gl = GlGraphics::new(opengl);
-    let tiles_x = 10;
-    // const PLAYER_ROT_INC: f64 = 0.0628319;
-    // const PLAYER_ROT_INC: f64 = 0.017453292519943295;
-    // const PLAYER_ROT_INC: f64 = 0.03490658503988659;
-    // const PLAYER_ROT_INC: f64 = 0.06981317007977318;
-    // const PLAYER_ROT_INC: f64 = 0.39269908169872414;
+    const TILES_X: usize = 10;
     let mut app = App {
         player: player::Player {
-            position: point::Point { x: 4.0, y: 5.0 },
-            angle: 0.0,
-            angle_tick: 0.39269908169872414,
-            // angle: -0.5654870999999999,
-            // angle: -49.762,
-            // angle: 0.69115,
-            // angle: 1.3191234,
-            rays: vec![Ray::new(); 400],
+            position: point::Point { x: 4.0, y: 5.00000 },
+            angle: std::f64::consts::PI / -3.0,
+            angle_tick: -0.39269908169872414,
+            rays: vec![Ray::new(); 1],
         },
         block_size: 50.0,
-        board: load_board(tiles_x, tiles_x),
+        board: load_board(TILES_X, TILES_X),
         tiles_x: 10,
         dt: 0.0,
         fps: 0.0,
@@ -61,7 +57,7 @@ fn main() {
     while let Some(e) = events.next(&mut window) {
         e.mouse_cursor(|pos| {
             app.mouse_x = pos[0];
-            app.mouse_y = pos[1] - 30.0;
+            app.mouse_y = pos[1] - TOP_OFFSET;
         });
 
         if let Some(b) = e.press_args() {
@@ -70,7 +66,6 @@ fn main() {
         if let Some(u) = e.update_args() {
             app.update(&u);
         }
-
         if let Some(r) = e.render_args() {
             app.render(&r, &mut gl, &mut glyphs);
         }
@@ -151,33 +146,17 @@ impl App {
                 gl,
             );
             // wall
-            // let wall_height = self.player.rays[0].wall_height;
-            // let trans_y = VIEW_HEIGHT_HALF - wall_height / 2.0;
-            // graphics::rectangle(
-            //     colors::BLUE_WALL,
-            //     [0.0, 0.0, VIEW_WIDTH, wall_height],
-            //     c.transform.trans(600.0, trans_y),
-            //     gl,
-            // );
-            self.draw_wall(&self.player.rays, VIEW_WIDTH, VIEW_HEIGHT_HALF, gl, c);
+            self.draw_wall(&self.player.rays, VIEW_HEIGHT_HALF, gl, c);
         });
     }
 
     fn draw_wall(
         &self,
         rays: &Vec<Ray>,
-        view_width: f64,
         view_height_half: f64,
         gl: &mut opengl_graphics::GlGraphics,
         context: graphics::Context,
     ) {
-        // graphics::rectangle(
-        //     colors::BLUE_WALL,
-        //     [0.0, 0.0, view_width, wall_height],
-        //     context.transform.trans(600.0, trans_y),
-        //     gl,
-        // );
-
         let _temp_rays: Vec<&Ray> = rays
             .iter()
             .filter(|r| r.wall_intersection.is_some())
@@ -254,28 +233,28 @@ impl App {
     fn handle_input(&mut self, button: &Button) {
         if let Button::Keyboard(key) = button {
             match key {
+                Key::W => {
+                    self.player.position.y -= 0.1;
+                }
+                Key::S => {
+                    self.player.position.y += 0.1;
+                }
                 Key::A => {
-                    self.player.angle += self.player.angle_tick;
+                    self.player.position.x -= 0.1;
                 }
                 Key::D => {
-                    self.player.angle -= self.player.angle_tick;
+                    self.player.position.x += 0.1;
                 }
                 Key::Left => {
-                    self.player.position.x -= 1.0;
+                    self.player.angle += self.player.angle_tick;
                 }
                 Key::Right => {
-                    self.player.position.x += 1.0;
+                    self.player.angle -= self.player.angle_tick;
                 }
                 Key::Up => {
                     self.player.position.y -= 1.0;
                 }
                 Key::Down => {
-                    self.player.position.y += 1.0;
-                }
-                Key::W => {
-                    self.player.position.y -= 1.0;
-                }
-                Key::S => {
                     self.player.position.y += 1.0;
                 }
                 _ => {}
