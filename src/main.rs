@@ -4,12 +4,15 @@ extern crate opengl_graphics;
 extern crate piston;
 
 use glutin_window::GlutinWindow as Window;
-use graphics::*;
+use graphics::{math::Matrix2d, Transformed, Viewport};
 use opengl_graphics::{Filter, GlGraphics, GlyphCache, OpenGL, TextureSettings};
-use piston::event_loop::*;
-use piston::input::*;
+use piston::event_loop::{EventSettings, Events};
+use piston::input::{
+    Button, Key, MouseCursorEvent, PressEvent, RenderArgs, RenderEvent, UpdateArgs, UpdateEvent,
+};
 use piston::window::WindowSettings;
 use ray::Ray;
+use sharp_graphics::SharpGraphics;
 
 mod colors;
 mod display_vec;
@@ -17,6 +20,7 @@ mod maths;
 mod player;
 mod point;
 mod ray;
+mod sharp_graphics;
 
 #[cfg(target_os = "linux")]
 static TOP_OFFSET: f64 = 30.0;
@@ -24,6 +28,7 @@ static TOP_OFFSET: f64 = 30.0;
 static TOP_OFFSET: f64 = 0.0;
 
 fn main() {
+    let _temp_x: Viewport;
     let opengl = OpenGL::V3_2;
     let mut window: Window = WindowSettings::new("ray-casting", [1100, 800])
         .graphics_api(opengl)
@@ -31,11 +36,14 @@ fn main() {
         .build()
         .unwrap();
 
+    // window.set_capture_cursor(capture_cursor); // doesn't work w/ current window type
+
     let texture_settings = TextureSettings::new().filter(Filter::Nearest);
-    let mut glyphs = GlyphCache::new("assets/FiraSans-Regular.ttf", (), texture_settings)
+    let glyphs = GlyphCache::new("assets/FiraSans-Regular.ttf", (), texture_settings)
         .expect("Could not load font");
 
-    let mut gl = GlGraphics::new(opengl);
+    let gl = GlGraphics::new(opengl);
+    let mut _sharp_graphics = SharpGraphics::new(gl, glyphs);
     const TILES_X: usize = 10;
     let mut app = App {
         player: player::Player {
@@ -67,7 +75,7 @@ fn main() {
             app.update(&u);
         }
         if let Some(r) = e.render_args() {
-            app.render(&r, &mut gl, &mut glyphs);
+            app.render(&r, &mut _sharp_graphics);
         }
     }
 }
@@ -90,18 +98,13 @@ impl std::fmt::Display for App {
 }
 
 impl App {
-    fn render(
-        &mut self,
-        args: &RenderArgs,
-        gl: &mut opengl_graphics::GlGraphics,
-        glyphs: &mut GlyphCache,
-    ) {
-        gl.draw(args.viewport(), |c, gl| {
-            clear([1.0; 4], gl);
+    fn render(&mut self, args: &RenderArgs, graphics: &mut SharpGraphics) {
+        graphics.draw(args.viewport(), |context, graphics| {
+            graphics.clear([1.0; 4]);
 
-            draw_grid(c, gl, self.block_size, self.tiles_x);
-            self.draw_board(c, gl, self.block_size);
-            self.player.draw(c, gl, self.block_size);
+            draw_grid(context.transform, graphics, self.block_size, self.tiles_x);
+            self.draw_board(context.transform, graphics, self.block_size);
+            self.player.draw(context, graphics, self.block_size);
             let board_x = (self.mouse_x / self.block_size).floor();
             let board_y = (self.mouse_y / self.block_size).floor();
             let board_debug = String::from(format!("board_x: {}, board_y: {}", board_x, board_y));
@@ -125,28 +128,37 @@ impl App {
             display_vector.push(format!("tan: {}", self.player.angle.tan()));
             display_vector.push(format!("x-es: {}", self.player.rays[0].x_intercepts));
             display_vector.push(format!("y-es: {}", self.player.rays[0].y_intercepts));
-            draw_lines(c, gl, glyphs, self.block_size, self.tiles_x, display_vector);
+            draw_lines(
+                context.transform,
+                graphics,
+                self.block_size,
+                self.tiles_x,
+                display_vector,
+            );
 
             // 3d section
             // ceil
             const VIEW_WIDTH: f64 = 400.0;
             const VIEW_HEIGHT: f64 = 300.0;
             const VIEW_HEIGHT_HALF: f64 = VIEW_HEIGHT / 2.0;
-            graphics::rectangle(
+            graphics.draw_rectangle(
                 colors::GRAY_CEIL,
                 [0.0, 0.0, VIEW_WIDTH, VIEW_HEIGHT_HALF],
-                c.transform.trans(600.0, 0.0),
-                gl,
+                context.transform.trans(600.0, 0.0),
             );
             // floor
-            graphics::rectangle(
+            graphics.draw_rectangle(
                 colors::GRAY_FLOOR,
                 [0.0, 0.0, VIEW_WIDTH, 150.0],
-                c.transform.trans(600.0, VIEW_HEIGHT_HALF),
-                gl,
+                context.transform.trans(600.0, VIEW_HEIGHT_HALF),
             );
             // wall
-            self.draw_wall(&self.player.rays, VIEW_HEIGHT_HALF, gl, c);
+            self.draw_wall(
+                &self.player.rays,
+                VIEW_HEIGHT_HALF,
+                graphics,
+                context.transform,
+            );
         });
     }
 
@@ -154,8 +166,8 @@ impl App {
         &self,
         rays: &Vec<Ray>,
         view_height_half: f64,
-        gl: &mut opengl_graphics::GlGraphics,
-        context: graphics::Context,
+        graphics: &mut SharpGraphics,
+        transform: Matrix2d,
     ) {
         let _temp_rays: Vec<&Ray> = rays
             .iter()
@@ -182,22 +194,15 @@ impl App {
                 _ => panic!("bad color"),
             };
             let color = color;
-            graphics::line(
+            graphics.draw_line(
                 color,
-                1.0,
                 [0.0, 0.0, 0.0, wall_height],
-                context.transform.trans(601.0 + i as f64, trans_y),
-                gl,
+                transform.trans(601.0 + i as f64, trans_y),
             );
         }
     }
 
-    fn draw_board(
-        &self,
-        c: graphics::Context,
-        gl: &mut opengl_graphics::GlGraphics,
-        block_size: f64,
-    ) {
+    fn draw_board(&self, c: Matrix2d, graphics: &mut SharpGraphics, block_size: f64) {
         for (i, &cell) in (0..).zip(self.board.iter()) {
             let color = match cell {
                 1 => Some(colors::RED_ALPHA),
@@ -209,7 +214,7 @@ impl App {
 
             if let Some(color) = color {
                 let (y, x) = maths::div_mod(i, self.tiles_x);
-                graphics::rectangle(
+                graphics.draw_rectangle(
                     color,
                     [
                         x as f64 * block_size,
@@ -217,8 +222,7 @@ impl App {
                         block_size,
                         block_size,
                     ],
-                    c.transform,
-                    gl,
+                    c,
                 );
             };
         }
@@ -243,14 +247,14 @@ impl App {
                     self.player.position.y -= self.player.angle.sin() * MOVE_STEP;
                 }
                 Key::A => {
-                    let perp_angle = self.player.angle - std::f64::consts::FRAC_PI_2;
-                    self.player.position.x += perp_angle.cos() * MOVE_STEP;
-                    self.player.position.y += perp_angle.sin() * MOVE_STEP;
+                    let perpendicular_angle = self.player.angle - std::f64::consts::FRAC_PI_2;
+                    self.player.position.x += perpendicular_angle.cos() * MOVE_STEP;
+                    self.player.position.y += perpendicular_angle.sin() * MOVE_STEP;
                 }
                 Key::D => {
-                    let perp_angle = self.player.angle + std::f64::consts::FRAC_PI_2;
-                    self.player.position.x += perp_angle.cos() * MOVE_STEP;
-                    self.player.position.y += perp_angle.sin() * MOVE_STEP;
+                    let perpendicular_angle = self.player.angle + std::f64::consts::FRAC_PI_2;
+                    self.player.position.x += perpendicular_angle.cos() * MOVE_STEP;
+                    self.player.position.y += perpendicular_angle.sin() * MOVE_STEP;
                 }
                 Key::Left => {
                     self.player.angle += self.player.angle_tick;
@@ -271,23 +275,21 @@ impl App {
 }
 
 fn draw_lines(
-    context: graphics::Context,
-    gl: &mut opengl_graphics::GlGraphics,
-    glyphs: &mut GlyphCache,
+    transform: Matrix2d,
+    graphics: &mut SharpGraphics,
     block_size: f64,
     tiles_x: u32,
     lines: Vec<String>,
 ) {
     let mut line_start = block_size * tiles_x as f64 + 25.0;
     for line in lines.into_iter() {
-        line_start += draw_string(context, gl, glyphs, line_start, line);
+        line_start += draw_string(transform, graphics, line_start, line);
     }
 }
 
 fn draw_string(
-    context: graphics::Context,
-    gl: &mut opengl_graphics::GlGraphics,
-    glyphs: &mut GlyphCache,
+    transform: Matrix2d,
+    graphics: &mut SharpGraphics,
     line_start: f64,
     data: String,
 ) -> f64 {
@@ -302,10 +304,9 @@ fn draw_string(
         end_index += std::cmp::min(data.len() - end_index, LINE_LENGTH);
         line_height_used += LINE_HEIGHT;
 
-        let location = context.transform.trans(10.0, line_start + line_height_used);
+        let location = transform.trans(10.0, line_start + line_height_used);
         let slice = &data[start_index..end_index];
-        graphics::text(colors::BLACK, FONT_SIZE, slice, glyphs, location, gl)
-            .expect("write text failure");
+        graphics.draw_text(colors::BLACK, FONT_SIZE, slice, location)
     }
 
     line_height_used
@@ -328,36 +329,33 @@ fn load_board(_tiles_x: usize, _tiles_y: usize) -> Vec<u32> {
 }
 
 fn draw_grid(
-    context: graphics::Context,
-    graphics: &mut opengl_graphics::GlGraphics,
+    transform: Matrix2d,
+    sharp_graphics_x: &mut SharpGraphics,
     block_size: f64,
     tiles_x: u32,
 ) {
     for i in 1..10 {
         let offset = i as f64;
-        graphics::line(
+        sharp_graphics_x.draw_line(
             colors::BLACK,
-            1.0,
             [
                 offset * block_size,
                 0.0,
                 offset * block_size,
                 tiles_x as f64 * block_size,
             ],
-            context.transform,
-            graphics,
+            transform,
         );
-        graphics::line(
+
+        sharp_graphics_x.draw_line(
             colors::BLACK,
-            1.0,
             [
                 0.0,
                 offset * block_size,
                 tiles_x as f64 * block_size,
                 offset * block_size,
             ],
-            context.transform,
-            graphics,
+            transform,
         );
     }
 }

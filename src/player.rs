@@ -1,8 +1,9 @@
 use colors;
-use graphics::*;
+use graphics::Transformed;
 use point::InterceptType;
 use point::Point;
 use ray::Ray;
+use sharp_graphics::SharpGraphics;
 
 #[derive(Debug)]
 pub struct Player {
@@ -63,34 +64,26 @@ impl Player {
         }
     }
 
-    pub fn draw(
-        &self,
-        context: graphics::Context,
-        gl: &mut opengl_graphics::GlGraphics,
-        block_size: f64,
-    ) {
+    pub fn draw(&self, context: graphics::Context, graphics: &mut SharpGraphics, block_size: f64) {
         // draw player
         let line_rot = context
             .transform
             .trans(block_size * self.position.x, block_size * self.position.y)
             .rot_rad(self.angle);
-        line(
+        graphics.draw_line(
             colors::BLUE_ALPHA,
-            1.0,
             [0.0, 0.0, block_size * 10.0, 0.0],
             line_rot,
-            gl,
         );
-        rectangle(
+        graphics.draw_rectangle(
             colors::BLACK,
             [0.0, 0.0, 10.0, 10.0],
             line_rot.trans(-5.0, -5.0),
-            gl,
         );
 
         // draw rays
         for ray in self.rays.iter() {
-            ray.draw(context, gl, block_size);
+            ray.draw(context, graphics, block_size);
         }
     }
 }

@@ -1,7 +1,8 @@
 use colors;
 use display_vec::DisplayVec;
-use graphics::*;
+use graphics::Transformed;
 use point::{InterceptType, Point, RayPoint};
+use sharp_graphics::SharpGraphics;
 
 const DEGREES_90_RADIANS: f64 = 1.5708;
 
@@ -57,18 +58,12 @@ impl Ray {
         self.wall_height = (100.0 / wall_distance) * 100.0;
     }
 
-    pub fn draw(
-        &self,
-        context: graphics::Context,
-        gl: &mut opengl_graphics::GlGraphics,
-        block_size: f64,
-    ) {
+    pub fn draw(&self, context: graphics::Context, graphics: &mut SharpGraphics, block_size: f64) {
         // self._draw_intercepts(context.transform, gl);
 
         if let Some(point) = self.wall_intersection {
-            line(
+            graphics.draw_line(
                 colors::YELLOW,
-                1.0,
                 [
                     self.start_position.x * block_size,
                     self.start_position.y * block_size,
@@ -76,14 +71,13 @@ impl Ray {
                     point.y,
                 ],
                 context.transform,
-                gl,
             );
             let color = if point.intercept_type == InterceptType::XIntercept {
                 colors::RED_ALPHA
             } else {
                 colors::BLUE_ALPHA
             };
-            self.draw_intercept(context.transform, gl, point, color);
+            self.draw_intercept(context.transform, graphics, point, color);
         }
     }
 
@@ -351,25 +345,21 @@ impl Ray {
     fn draw_intercept(
         &self,
         transform: graphics::math::Matrix2d,
-        gl: &mut opengl_graphics::GlGraphics,
+        graphics: &mut SharpGraphics,
         point: RayPoint,
         color: [f32; 4],
     ) {
         let xform = transform.trans(point.x, point.y).trans(-5.0, -5.0);
-        rectangle(color, [0.0, 0.0, 10.0, 10.0], xform, gl);
+        graphics.draw_rectangle(color, [0.0, 0.0, 10.0, 10.0], xform);
     }
 
-    fn _draw_intercepts(
-        &self,
-        transform: graphics::math::Matrix2d,
-        gl: &mut opengl_graphics::GlGraphics,
-    ) {
+    fn _draw_intercepts(&self, transform: graphics::math::Matrix2d, graphics: &mut SharpGraphics) {
         for &x_intercept in self.x_intercepts.iter() {
-            self.draw_intercept(transform, gl, x_intercept, colors::RED_ALPHA);
+            self.draw_intercept(transform, graphics, x_intercept, colors::RED_ALPHA);
         }
 
         for &y_intercept in self.y_intercepts.iter() {
-            self.draw_intercept(transform, gl, y_intercept, colors::BLUE_ALPHA);
+            self.draw_intercept(transform, graphics, y_intercept, colors::BLUE_ALPHA);
         }
     }
 }
