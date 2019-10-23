@@ -63,7 +63,7 @@ impl Ray {
         gl: &mut opengl_graphics::GlGraphics,
         block_size: f64,
     ) {
-        self._draw_intercepts(context.transform, gl);
+        // self._draw_intercepts(context.transform, gl);
 
         if let Some(point) = self.wall_intersection {
             line(
@@ -78,12 +78,12 @@ impl Ray {
                 context.transform,
                 gl,
             );
-            // let color = if point.intercept_type == InterceptType::XIntercept {
-            //     colors::RED_ALPHA
-            // } else {
-            //     colors::BLUE_ALPHA
-            // };
-            // self.draw_intercept(context.transform, gl, point, color);
+            let color = if point.intercept_type == InterceptType::XIntercept {
+                colors::RED_ALPHA
+            } else {
+                colors::BLUE_ALPHA
+            };
+            self.draw_intercept(context.transform, gl, point, color);
         }
     }
 
@@ -314,17 +314,18 @@ impl Ray {
     }
 
     fn get_initial_y_intercept(&self, block_size: f64, cos: f64, y_tan: f64) -> RayPoint {
-        let x_value = if cos > 0.0 {
-            block_size * (self.start_position.x + 1.0)
+        let board_x = if cos > 0.0 {
+            self.start_position.x.floor() + 1.0
         } else {
-            block_size * (self.start_position.x - 1.0)
+            self.start_position.x.ceil() - 1.0
         };
-        let y_value = if cos > 0.0 {
-            (block_size * self.start_position.y) + (y_tan * block_size)
-        } else {
-            (block_size * self.start_position.y) - (y_tan * block_size)
-        };
-        RayPoint::new(x_value, y_value, InterceptType::YIntercept)
+        let delta_next_x = self.start_position.x - board_x;
+        let delta_next_y = y_tan * delta_next_x;
+        let board_y = self.start_position.y - delta_next_y;
+        let point_y = board_y * block_size;
+
+        let point_x = board_x * block_size;
+        RayPoint::new(point_x, point_y, InterceptType::YIntercept)
     }
 
     fn get_y_intercept(
@@ -367,9 +368,8 @@ impl Ray {
             self.draw_intercept(transform, gl, x_intercept, colors::RED_ALPHA);
         }
 
-        // for &y_intercept in self.y_intercepts.iter()
-        // {
-        //     self.draw_intercept(transform, gl, y_intercept, colors::BLUE_ALPHA);
-        // }
+        for &y_intercept in self.y_intercepts.iter() {
+            self.draw_intercept(transform, gl, y_intercept, colors::BLUE_ALPHA);
+        }
     }
 }

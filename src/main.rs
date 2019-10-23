@@ -39,10 +39,10 @@ fn main() {
     const TILES_X: usize = 10;
     let mut app = App {
         player: player::Player {
-            position: point::Point { x: 4.0, y: 5.00000 },
-            angle: std::f64::consts::PI / -3.0,
-            angle_tick: -0.39269908169872414,
-            rays: vec![Ray::new(); 1],
+            position: point::Point { x: 4.0, y: 5.0 },
+            angle: std::f64::consts::PI / 4.0,
+            angle_tick: std::f64::consts::PI / -20.0,
+            rays: vec![Ray::new(); 400],
         },
         block_size: 50.0,
         board: load_board(TILES_X, TILES_X),
@@ -231,19 +231,26 @@ impl App {
     }
 
     fn handle_input(&mut self, button: &Button) {
+        const MOVE_STEP: f64 = 0.1;
         if let Button::Keyboard(key) = button {
             match key {
                 Key::W => {
-                    self.player.position.y -= 0.1;
+                    self.player.position.x += self.player.angle.cos() * MOVE_STEP;
+                    self.player.position.y += self.player.angle.sin() * MOVE_STEP;
                 }
                 Key::S => {
-                    self.player.position.y += 0.1;
+                    self.player.position.x -= self.player.angle.cos() * MOVE_STEP;
+                    self.player.position.y -= self.player.angle.sin() * MOVE_STEP;
                 }
                 Key::A => {
-                    self.player.position.x -= 0.1;
+                    let perp_angle = self.player.angle - std::f64::consts::FRAC_PI_2;
+                    self.player.position.x += perp_angle.cos() * MOVE_STEP;
+                    self.player.position.y += perp_angle.sin() * MOVE_STEP;
                 }
                 Key::D => {
-                    self.player.position.x += 0.1;
+                    let perp_angle = self.player.angle + std::f64::consts::FRAC_PI_2;
+                    self.player.position.x += perp_angle.cos() * MOVE_STEP;
+                    self.player.position.y += perp_angle.sin() * MOVE_STEP;
                 }
                 Key::Left => {
                     self.player.angle += self.player.angle_tick;
