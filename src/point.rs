@@ -1,31 +1,36 @@
-#[derive(Debug, Clone, Copy)]
-pub struct Point {
+pub struct ScreenPoint {
     pub x: f64,
     pub y: f64,
 }
 
-impl From<RayPoint> for Point {
-    fn from(ray_point: RayPoint) -> Point {
-        Point {
+#[derive(Debug, Clone, Copy)]
+pub struct BoardPoint {
+    pub x: f64,
+    pub y: f64,
+}
+
+impl From<RayPoint> for BoardPoint {
+    fn from(ray_point: RayPoint) -> BoardPoint {
+        BoardPoint {
             x: ray_point.x,
             y: ray_point.y,
         }
     }
 }
 
-impl Point {
+impl BoardPoint {
     pub fn get_distance(self, other_point: RayPoint) -> f64 {
         let dx = self.x - other_point.x;
         let dy = self.y - other_point.y;
         let d = (dx.powf(2.0) + dy.powf(2.0)).sqrt();
         d
     }
-    pub fn new() -> Point {
-        Point { x: 0.0, y: 0.0 }
+    pub fn new() -> BoardPoint {
+        BoardPoint { x: 0.0, y: 0.0 }
     }
 }
 
-impl std::fmt::Display for Point {
+impl std::fmt::Display for BoardPoint {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "Point {{ x: {}, y: {} }}", self.x, self.y,)
     }
@@ -47,17 +52,17 @@ pub struct RayPoint {
 }
 
 impl RayPoint {
-    pub fn new(x: f64, y: f64, intercept_type: InterceptType)->RayPoint{
-      RayPoint {
+    pub fn new(x: f64, y: f64, intercept_type: InterceptType) -> RayPoint {
+        RayPoint {
             x: x,
             y: y,
             intercept_type: intercept_type,
             board_index: None,
-            has_wall_intersection: false
+            has_wall_intersection: false,
         }
     }
 
-    pub fn get_distance(self, other_point: Point) -> f64 {
+    pub fn get_distance(self, other_point: BoardPoint) -> f64 {
         let dx = self.x - other_point.x;
         let dy = self.y - other_point.y;
         let d = (dx.powf(2.0) + dy.powf(2.0)).sqrt();

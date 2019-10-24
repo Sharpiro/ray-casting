@@ -1,4 +1,4 @@
-pub fn div_mod(left: u32, right: u32) -> (u32, u32) {
+pub fn div_mod(left: usize, right: usize) -> (usize, usize) {
     let quotient = left / right;
     let modulus = left - quotient * right;
     (quotient, modulus)
