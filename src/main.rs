@@ -6,6 +6,7 @@ extern crate piston;
 use board::Board;
 use glutin_window::GlutinWindow as Window;
 use graphics::{math::Matrix2d, Transformed};
+use mini_map::MiniMap;
 use opengl_graphics::{Filter, GlGraphics, GlyphCache, OpenGL, TextureSettings};
 use piston::event_loop::{EventSettings, Events};
 use piston::input::{
@@ -20,6 +21,7 @@ mod board;
 mod colors;
 mod display_vec;
 mod maths;
+mod mini_map;
 mod player;
 mod point;
 mod ray;
@@ -32,7 +34,7 @@ static TOP_OFFSET: f64 = 0.0;
 
 fn main() {
     let opengl = OpenGL::V3_2;
-    let mut window: Window = WindowSettings::new("ray-casting", [1100, 800])
+    let mut window: Window = WindowSettings::new("ray-casting", [1100, 1100])
         .graphics_api(opengl)
         .exit_on_esc(true)
         .build()
@@ -50,11 +52,12 @@ fn main() {
     const BLOCK_SIZE: f64 = 50.0;
     let mut app = App {
         board: board::Board::new(load_board(), TILES_X, TILES_Y, BLOCK_SIZE),
+        mini_map: MiniMap {},
         player: player::Player {
-            position: BoardPoint { x: 4.0, y: 4.0 },
+            position: BoardPoint { x: 6.0, y: 3.0 },
             angle: 0.0,
             angle_tick: std::f64::consts::PI / -20.0,
-            rays: vec![Ray::new(); 1],
+            rays: vec![Ray::new(); 400],
             move_step: 0.1,
         },
         dt: 0.0,
@@ -63,6 +66,7 @@ fn main() {
         mouse_y: 0.0,
     };
 
+    app.update(UpdateArgs { dt: 0.0 });
     let mut events = Events::new(EventSettings::new());
     while let Some(e) = events.next(&mut window) {
         e.mouse_cursor(|pos| {
@@ -74,7 +78,7 @@ fn main() {
             app.handle_input(&b);
         }
         if let Some(u) = e.update_args() {
-            app.update(&u);
+            app.update(u);
         }
         if let Some(r) = e.render_args() {
             app.render(&r, &mut graphics);
@@ -85,6 +89,7 @@ fn main() {
 struct App {
     player: player::Player,
     board: board::Board,
+    mini_map: MiniMap,
     mouse_x: f64,
     mouse_y: f64,
     dt: f64,
@@ -103,6 +108,8 @@ impl App {
             graphics.clear([1.0; 4]);
 
             self.board.draw(context.transform, graphics);
+            self.mini_map
+                .draw(context.transform, graphics, &self.board, &self.player);
             self.player.draw(context.transform, graphics, &self.board);
             let mouse_screen_point = ScreenPoint {
                 x: self.mouse_x,
@@ -131,8 +138,8 @@ impl App {
             display_vector.push(format!("sin: {}", self.player.angle.sin()));
             display_vector.push(format!("cos: {}", self.player.angle.cos()));
             display_vector.push(format!("tan: {}", self.player.angle.tan()));
-            display_vector.push(format!("x-es: {}", self.player.rays[0].x_intercepts));
-            display_vector.push(format!("y-es: {}", self.player.rays[0].y_intercepts));
+            // display_vector.push(format!("x-es: {}", self.player.rays[0].x_intercepts));
+            // display_vector.push(format!("y-es: {}", self.player.rays[0].y_intercepts));
             draw_lines(context.transform, graphics, &self.board, display_vector);
 
             // 3d section
@@ -168,15 +175,6 @@ impl App {
         graphics: &mut SharpGraphics,
         transform: Matrix2d,
     ) {
-        let _temp_rays: Vec<&Ray> = rays
-            .iter()
-            .filter(|r| r.wall_intersection.is_some())
-            .collect();
-        if _temp_rays.is_empty() {
-            let _temp2 = 12;
-            return;
-        }
-
         for (i, ray) in rays.iter().enumerate() {
             let wall_height = ray.wall_height;
             let trans_y = view_height_half - wall_height / 2.0;
@@ -192,7 +190,6 @@ impl App {
                 4 => colors::ORANGE_ALPHA,
                 _ => panic!("bad color"),
             };
-            let color = color;
             graphics.draw_line(
                 color,
                 [0.0, 0.0, 0.0, wall_height],
@@ -201,7 +198,7 @@ impl App {
         }
     }
 
-    fn update(&mut self, args: &UpdateArgs) {
+    fn update(&mut self, args: UpdateArgs) {
         self.dt = args.dt;
         self.fps = 1.0 / self.dt;
         self.player.update(&self.board);
@@ -298,6 +295,7 @@ fn load_board() -> Vec<u32> {
         0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
         0, 2, 0, 0, 0, 0, 0, 4, 0, 0,
         0, 2, 3, 3, 3, 3, 3, 4, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     ]
 }

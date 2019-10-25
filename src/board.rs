@@ -83,7 +83,7 @@ impl Board {
     }
 
     fn draw_grid(&self, transform: Matrix2d, sharp_graphics_x: &mut SharpGraphics) {
-        for i in 1..10 {
+        for i in 1..self.tiles_y {
             let offset = i as f64;
 
             // draw x axis
@@ -92,7 +92,10 @@ impl Board {
                 [0.0, 0.0, self.tiles_x as f64 * self.block_size, 0.0],
                 transform.trans(0.0, offset * self.block_size),
             );
+        }
 
+        for i in 1..self.tiles_x {
+            let offset = i as f64;
             // draw y axis
             sharp_graphics_x.draw_line(
                 colors::BLACK,

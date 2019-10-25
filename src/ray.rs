@@ -5,8 +5,6 @@ use graphics::{math::Matrix2d, Transformed};
 use point::{BoardPoint, InterceptType, RayPoint};
 use sharp_graphics::SharpGraphics;
 
-const DEGREES_90_RADIANS: f64 = 1.5708;
-
 #[derive(Debug, Clone)]
 pub struct Ray {
     pub angle: f64,
@@ -56,11 +54,15 @@ impl Ray {
         let (wall_intersection, wall_distance) = self.get_wall_intersection();
         self.wall_intersection = wall_intersection;
         self.wall_distance = wall_distance;
-        self.wall_height = (100.0 / wall_distance) * 100.0;
+
+        const DELTA_SIZE: f64 = 10.0;
+        const INITIAL_SIZE: f64 = 1000.0;
+        let fraction = DELTA_SIZE / wall_distance;
+        self.wall_height = fraction * INITIAL_SIZE;
     }
 
     pub fn draw(&self, transform: Matrix2d, graphics: &mut SharpGraphics, block_size: f64) {
-        self._draw_intercepts(transform, graphics);
+        // self._draw_intercepts(transform, graphics);
 
         if let Some(point) = self.wall_intersection {
             graphics.draw_line(
@@ -125,7 +127,7 @@ impl Ray {
     }
 
     fn get_x_intercepts(&self, board: &Board, sin: f64, cos: f64) -> DisplayVec<RayPoint> {
-        let x_tan = (DEGREES_90_RADIANS - self.angle).tan();
+        let x_tan = (std::f64::consts::FRAC_PI_2 - self.angle).tan();
         let mut x_intercept = self.get_initial_x_intercept(board.block_size, sin, x_tan);
         let mut x_intercepts = DisplayVec::<RayPoint>::new();
 
@@ -235,11 +237,11 @@ impl Ray {
             }
             y_tile -= 1;
         }
-        if y_tile >= 10 {
+        if y_tile >= board.tiles_y {
             //todo: check seems unnecessary when inside board since this is for x intercept
             return None;
         }
-        let index = x_tile + y_tile * 10;
+        let index = board.get_index_from_tile(x_tile, y_tile);
         Some(index)
     }
 
@@ -345,9 +347,9 @@ impl Ray {
     }
 
     fn _draw_intercepts(&self, transform: Matrix2d, graphics: &mut SharpGraphics) {
-        // for &x_intercept in self.x_intercepts.iter() {
-        //     self.draw_intercept(transform, graphics, x_intercept, colors::RED_ALPHA);
-        // }
+        for &x_intercept in self.x_intercepts.iter() {
+            self.draw_intercept(transform, graphics, x_intercept, colors::RED_ALPHA);
+        }
 
         for &y_intercept in self.y_intercepts.iter() {
             self.draw_intercept(transform, graphics, y_intercept, colors::BLUE_ALPHA);
